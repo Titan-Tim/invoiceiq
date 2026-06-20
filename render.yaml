@@ -28,6 +28,6 @@ services:
 
 databases:
   - name: invoiceiq-db
-    plan: starter
+    plan: basic-1gb
     databaseName: invoiceiq
     user: invoiceiq
