@@ -78,7 +78,7 @@ def create_app():
     def _user_name():  return session.get('user_name', 'System')
     def _user_id():    return session.get('user_id')
 
-    PUBLIC_ENDPOINTS = {'login', 'healthz', 'static'}
+    PUBLIC_ENDPOINTS = {'login', 'healthz', 'static', 'privacy_policy', 'terms_of_use'}
     WIZARD_PATH_PREFIXES = ('/api/wizard', '/api/settings', '/auth/')
 
     @app.before_request
@@ -151,6 +151,23 @@ def create_app():
     def logout():
         session.clear()
         return redirect(url_for('login'))
+
+    def _legal_doc_context():
+        settings = load_settings()
+        admin = User.query.filter_by(role='admin').order_by(User.id).first()
+        return {
+            'today':         datetime.utcnow().strftime('%d %B %Y'),
+            'company_name':  settings.get('app', {}).get('company_name') or 'the operating company',
+            'contact_email': (admin.email if admin else None) or 'support@invoiceiq.app',
+        }
+
+    @app.route('/privacy')
+    def privacy_policy():
+        return render_template('privacy.html', **_legal_doc_context())
+
+    @app.route('/terms')
+    def terms_of_use():
+        return render_template('terms.html', **_legal_doc_context())
 
     @app.route('/invoices')
     def invoices():

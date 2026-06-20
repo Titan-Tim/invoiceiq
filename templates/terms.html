@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Terms of Use — InvoiceIQ</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body { background:#f8fafc; color:#1e293b; }
+    .doc-wrap { max-width:760px; margin:0 auto; padding:48px 24px 80px; }
+    h1 { font-weight:700; font-size:1.8rem; margin-bottom:4px; }
+    .updated { color:#64748b; font-size:0.85rem; margin-bottom:32px; }
+    h2 { font-size:1.15rem; font-weight:700; margin-top:32px; margin-bottom:10px; }
+    p, li { color:#334155; line-height:1.65; }
+    .brand { display:flex; align-items:center; gap:8px; margin-bottom:24px; }
+    .brand strong { color:#3b82f6; }
+  </style>
+</head>
+<body>
+<div class="doc-wrap">
+  <div class="brand">
+    <svg width="26" height="26" viewBox="0 0 30 30" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect width="30" height="30" rx="7" fill="#3b82f6"/>
+      <rect x="6" y="8"  width="18" height="2.5" rx="1.25" fill="white"/>
+      <rect x="6" y="13" width="13" height="2.5" rx="1.25" fill="rgba(255,255,255,0.75)"/>
+      <rect x="6" y="18" width="9"  height="2.5" rx="1.25" fill="rgba(255,255,255,0.5)"/>
+    </svg>
+    <span class="fw-semibold">Invoice<strong>IQ</strong></span>
+  </div>
+
+  <h1>Terms of Use</h1>
+  <div class="updated">Last updated: {{ today }}</div>
+
+  <p>These Terms of Use govern access to InvoiceIQ ("the App"), an internal accounts payable automation tool
+  operated by {{ company_name }} ("we", "us", "our") for use by its own employees and authorised approvers.</p>
+
+  <h2>1. Purpose and scope</h2>
+  <p>The App is provided solely for our internal business operations — capturing, extracting, matching,
+  approving, and posting supplier invoices to our connected accounting system. It is not offered to the
+  public or to other organisations as a commercial service.</p>
+
+  <h2>2. Authorised use</h2>
+  <p>Access is restricted to individuals we have explicitly granted a login. Each user is responsible for
+  keeping their credentials confidential and for any actions taken under their account, including invoice
+  approvals and postings to the accounting system.</p>
+
+  <h2>3. Accuracy of automated processing</h2>
+  <p>The App uses AI to extract data from invoice documents and to match them against purchase orders. While
+  designed to be accurate, AI-extracted data and automated matches may occasionally contain errors. Users
+  reviewing and approving invoices remain responsible for verifying accuracy before approval.</p>
+
+  <h2>4. Connected third-party services</h2>
+  <p>The App connects to Microsoft 365, an accounting system (QuickBooks Online, Xero, or Sage 50), and
+  Anthropic's Claude AI service to perform its functions. Use of the App is also subject to the terms of
+  those underlying services where applicable.</p>
+
+  <h2>5. No warranty</h2>
+  <p>The App is provided "as is" for internal use without warranty of any kind, express or implied, including
+  fitness for a particular purpose. We do not guarantee uninterrupted availability.</p>
+
+  <h2>6. Limitation of liability</h2>
+  <p>To the extent permitted by law, {{ company_name }} excludes liability for indirect or consequential
+  losses arising from use of the App, save where such exclusion would be unlawful.</p>
+
+  <h2>7. Changes</h2>
+  <p>We may update these terms or the App's functionality at any time to reflect changes in our internal
+  processes or the services it connects to.</p>
+
+  <h2>8. Contact</h2>
+  <p>Questions about these terms can be sent to <strong>{{ contact_email }}</strong>.</p>
+</div>
+</body>
+</html>
