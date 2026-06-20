@@ -292,7 +292,18 @@ function renderActions(status) {
   if (['matched','partial_match','approved'].includes(status)) {
     html += `<button class="btn btn-primary" onclick="postToFinance()"><i class="bi bi-cloud-upload me-1"></i>Post to Finance</button>`;
   }
+  html += `<button class="btn btn-outline-danger" onclick="deleteInvoice()"><i class="bi bi-trash me-1"></i>Delete</button>`;
   btns.innerHTML = html;
+}
+
+async function deleteInvoice() {
+  if (!confirm('Delete this invoice permanently? This cannot be undone.')) return;
+  const r = await fetch(`/api/invoices/${invoiceId}`, { method: 'DELETE' }).then(r => r.json());
+  if (r.success) {
+    window.location.href = '/invoices';
+  } else {
+    showToast(r.error || 'Could not delete invoice', 'danger');
+  }
 }
 
 document.getElementById('confirm-approve').addEventListener('click', async () => {

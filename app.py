@@ -498,6 +498,18 @@ def create_app():
         except Exception as e:
             return jsonify({'error': str(e)}), 500
 
+    @app.route('/api/invoices/<int:invoice_id>', methods=['DELETE'])
+    def api_delete_invoice(invoice_id):
+        inv = db.get_or_404(Invoice, invoice_id)
+        if inv.attachment_path:
+            try:
+                Path(inv.attachment_path).unlink(missing_ok=True)
+            except Exception:
+                pass
+        db.session.delete(inv)  # cascades to InvoiceLine and AuditLog
+        db.session.commit()
+        return jsonify({'success': True})
+
     @app.route('/api/approvals')
     def api_approvals():
         uid = _user_id()
