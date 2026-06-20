@@ -613,16 +613,52 @@ def create_app():
         save_settings(current)
         return jsonify({'success': True})
 
+    @app.route('/api/wizard/create-admin', methods=['POST'])
+    def api_wizard_create_admin():
+        """Create (or update) the first admin account and log them in.
+
+        Called right after wizard Step 1, before the user navigates away for
+        QBO/Xero OAuth — that round-trip is a full page reload that wipes any
+        unsaved form state, so the account must exist (and the session be
+        set) before that happens, not at the very end of the wizard.
+        """
+        if load_settings().get('app', {}).get('setup_complete'):
+            return jsonify({'error': 'Setup has already been completed.'}), 400
+
+        data     = request.get_json() or {}
+        email    = data.get('admin_email', '').strip().lower()
+        password = data.get('admin_password', '')
+        name     = data.get('admin_name', '').strip()
+
+        if not email or not password:
+            return jsonify({'error': 'Admin email and password are required'}), 400
+        if len(password) < 8:
+            return jsonify({'error': 'Password must be at least 8 characters.'}), 400
+
+        user = User.query.filter_by(email=email).first()
+        if not user:
+            user = User(email=email, name=name or 'Admin')
+            db.session.add(user)
+        user.name      = name or user.name or 'Admin'
+        user.role      = 'admin'
+        user.is_active = True
+        user.set_password(password)
+        db.session.commit()
+
+        session.update({'user_id': user.id, 'user_name': user.name, 'user_role': user.role})
+        return jsonify({'success': True})
+
     @app.route('/api/wizard/complete', methods=['POST'])
     def api_wizard_complete():
-        """Create the admin account, mark setup as done, apply final wizard payload."""
-        payload         = request.get_json() or {}
-        admin_email     = payload.pop('admin_email', '').strip().lower()
-        admin_password  = payload.pop('admin_password', '')
-        admin_name      = payload.pop('admin_name', '').strip()
+        """Mark setup as done and apply the final wizard settings payload.
+        The admin account is created earlier, in /api/wizard/create-admin."""
+        payload = request.get_json() or {}
+        payload.pop('admin_email', None)
+        payload.pop('admin_password', None)
+        payload.pop('admin_name', None)
 
-        if not admin_email or not admin_password:
-            return jsonify({'error': 'Admin email and password are required'}), 400
+        if not session.get('user_id'):
+            return jsonify({'error': 'Admin account was not created — please go back to Step 1.'}), 400
 
         current = load_settings()
         from src.config_manager import _deep_merge
@@ -631,18 +667,6 @@ def create_app():
         _sync_approver_users(current)
         _strip_approver_passwords(current)
         save_settings(current)
-
-        user = User.query.filter_by(email=admin_email).first()
-        if not user:
-            user = User(email=admin_email, name=admin_name or 'Admin')
-            db.session.add(user)
-        user.name      = admin_name or user.name or 'Admin'
-        user.role      = 'admin'
-        user.is_active = True
-        user.set_password(admin_password)
-        db.session.commit()
-
-        session.update({'user_id': user.id, 'user_name': user.name, 'user_role': user.role})
         return jsonify({'success': True})
 
     @app.route('/api/account/change-password', methods=['POST'])

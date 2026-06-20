@@ -548,9 +548,10 @@ function showStep(n) {
   }
 }
 
-function validateStep1AndContinue() {
+async function validateStep1AndContinue() {
   const errEl = document.getElementById('w-admin-error');
-  const email = document.getElementById('w-admin-email').value.trim();
+  const name  = document.getElementById('w-admin-name').value.trim();
+  const email = document.getElementById('w-admin-email').value.trim().toLowerCase();
   const pass  = document.getElementById('w-admin-password').value;
   const conf  = document.getElementById('w-admin-password-confirm').value;
 
@@ -566,6 +567,33 @@ function validateStep1AndContinue() {
     showError('Passwords do not match.'); return;
   }
   errEl.classList.add('d-none');
+
+  // Create the admin account now — connecting QBO/Xero later navigates away
+  // for OAuth and back, a full page reload that would otherwise wipe these
+  // unsaved fields before they ever reached the server.
+  const btn = document.querySelector('#sp-1 .btn-primary');
+  const originalLabel = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '<i class="bi bi-arrow-repeat spinning me-1"></i>Creating account…';
+
+  await partialSave({ app: {
+    company_name: document.getElementById('w-company').value,
+    currency:     document.getElementById('w-currency').value,
+  }});
+
+  const result = await fetch('/api/wizard/create-admin', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ admin_name: name, admin_email: email, admin_password: pass }),
+  }).then(r => r.json());
+
+  btn.disabled = false;
+  btn.innerHTML = originalLabel;
+
+  if (result.error) {
+    showError(result.error);
+    return;
+  }
   goStep(2);
 }
 
@@ -647,9 +675,6 @@ async function finishSetup(skipAI = false) {
       company_name: document.getElementById('w-company').value,
       currency:     document.getElementById('w-currency').value,
     },
-    admin_name:     document.getElementById('w-admin-name').value,
-    admin_email:    document.getElementById('w-admin-email').value.trim().toLowerCase(),
-    admin_password: document.getElementById('w-admin-password').value,
   };
   if (!skipAI) {
     payload.claude = {
