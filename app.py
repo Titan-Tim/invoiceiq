@@ -89,7 +89,7 @@ def create_app():
         # saving settings, testing connections, OAuth) runs before any account
         # exists, so it's exempt until setup_complete flips to True.
         if not load_settings().get('app', {}).get('setup_complete'):
-            if request.endpoint == 'wizard' or request.path.startswith(WIZARD_PATH_PREFIXES):
+            if request.endpoint in ('wizard', 'dashboard') or request.path.startswith(WIZARD_PATH_PREFIXES):
                 return
         if session.get('user_id') or session.get('user_name'):
             return
@@ -112,11 +112,11 @@ def create_app():
         from flask import make_response
         if request.method == 'HEAD':
             return make_response('', 200)
-        if not session.get('user_name'):
-            return redirect(url_for('login'))
         settings = load_settings()
         if not settings.get('app', {}).get('setup_complete'):
             return redirect(url_for('wizard'))
+        if not session.get('user_name'):
+            return redirect(url_for('login'))
         return render_template('dashboard.html',
                                user_name=session.get('user_name'),
                                user_role=session.get('user_role', 'admin'))
