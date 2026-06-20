@@ -210,7 +210,7 @@ class QBOConnector(BaseConnector):
 
         url  = f"{self._base}/{self._realm_id()}/bill"
         resp = requests.post(url, headers=self._headers(), json={'Bill': bill})
-        resp.raise_for_status()
+        self._raise_detailed(resp)
         return str(resp.json().get('Bill', {}).get('Id', ''))
 
     # ------------------------------------------------------------------ #
@@ -264,8 +264,14 @@ class QBOConnector(BaseConnector):
     def _query(self, sql: str) -> dict:
         url  = f"{self._base}/{self._realm_id()}/query"
         resp = requests.get(url, headers=self._headers(), params={'query': sql})
-        resp.raise_for_status()
+        self._raise_detailed(resp)
         return resp.json().get('QueryResponse', {})
+
+    @staticmethod
+    def _raise_detailed(resp):
+        """Raise with Intuit's actual error body, not just the HTTP status line."""
+        if not resp.ok:
+            raise RuntimeError(f"{resp.status_code} {resp.reason}: {resp.text[:500]}")
 
     def _b64_creds(self) -> str:
         raw = f"{self.cfg['client_id']}:{self.cfg['client_secret']}"
