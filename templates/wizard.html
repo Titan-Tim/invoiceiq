@@ -696,13 +696,18 @@ async function loadSavedSettings() {
     // QBO fields
     if (s.qbo?.client_id)     document.getElementById('w-qbo-id').value     = s.qbo.client_id;
     if (s.qbo?.environment)   document.getElementById('w-qbo-env').value    = s.qbo.environment;
+    // Only trust a saved redirect_uri if it matches the domain we're actually
+    // running on right now — otherwise it's a stale/default value (often the
+    // localhost default baked into settings before this domain existed).
+    const qboSaved = s.qbo?.redirect_uri || '';
     document.getElementById('w-qbo-uri').value =
-      s.qbo?.redirect_uri || (window.location.origin + '/auth/qbo/callback');
+      qboSaved.startsWith(window.location.origin) ? qboSaved : (window.location.origin + '/auth/qbo/callback');
 
     // Xero fields
     if (s.xero?.client_id)    document.getElementById('w-xero-id').value    = s.xero.client_id;
+    const xeroSaved = s.xero?.redirect_uri || '';
     document.getElementById('w-xero-uri').value =
-      s.xero?.redirect_uri || (window.location.origin + '/auth/xero/callback');
+      xeroSaved.startsWith(window.location.origin) ? xeroSaved : (window.location.origin + '/auth/xero/callback');
 
     // Sage fields
     if (s.sage?.data_path)    document.getElementById('w-sage-path').value  = s.sage.data_path;
