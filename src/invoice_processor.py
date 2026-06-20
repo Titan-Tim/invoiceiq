@@ -100,29 +100,33 @@ def process_new_emails() -> dict:
             # Resolve vendor reference in finance system
             _resolve_vendor_ref(invoice)
 
-            # Match PO
-            try:
-                invoice.status = 'matching'
-                db.session.commit()
-                result = matcher.find_and_match(invoice)
+            # Match PO (skipped entirely if this business doesn't use POs)
+            if settings.get('po_source', {}).get('enabled', True):
+                try:
+                    invoice.status = 'matching'
+                    db.session.commit()
+                    result = matcher.find_and_match(invoice)
 
-                if result.po:
-                    invoice.matched_po_id      = result.po.id
-                    invoice.match_confidence   = result.confidence
-                    invoice.match_discrepancies = str(result.discrepancies)
-                    invoice.status = 'matched' if result.matched else 'partial_match'
-                    if not result.matched:
-                        invoice.status_message = '; '.join(result.discrepancies[:3])
-                else:
-                    invoice.status = 'no_match'
-                    invoice.status_message = 'No matching purchase order found'
+                    if result.po:
+                        invoice.matched_po_id      = result.po.id
+                        invoice.match_confidence   = result.confidence
+                        invoice.match_discrepancies = str(result.discrepancies)
+                        invoice.status = 'matched' if result.matched else 'partial_match'
+                        if not result.matched:
+                            invoice.status_message = '; '.join(result.discrepancies[:3])
+                    else:
+                        invoice.status = 'no_match'
+                        invoice.status_message = 'No matching purchase order found'
+                    db.session.commit()
+                except Exception as e:
+                    invoice.status = 'exception'
+                    invoice.status_message = f"Matching failed: {e}"
+                    db.session.commit()
+                    stats['errors'] += 1
+                    continue
+            else:
+                invoice.status = 'matched'
                 db.session.commit()
-            except Exception as e:
-                invoice.status = 'exception'
-                invoice.status_message = f"Matching failed: {e}"
-                db.session.commit()
-                stats['errors'] += 1
-                continue
 
             # Approval routing
             if workflow.check_requires_approval(invoice):
@@ -154,6 +158,7 @@ def process_uploaded_invoice(invoice_id: int) -> None:
     manually uploaded (record already exists, file already saved).
     Called in a background thread from the upload API endpoint.
     """
+    settings = load_settings()
     extractor = InvoiceExtractor()
     matcher   = POMatcher()
     workflow  = ApprovalWorkflow()
@@ -182,28 +187,32 @@ def process_uploaded_invoice(invoice_id: int) -> None:
 
     _resolve_vendor_ref(invoice)
 
-    # Match PO
-    try:
-        invoice.status = 'matching'
-        db.session.commit()
-        result = matcher.find_and_match(invoice)
+    # Match PO (skipped entirely if this business doesn't use POs)
+    if settings.get('po_source', {}).get('enabled', True):
+        try:
+            invoice.status = 'matching'
+            db.session.commit()
+            result = matcher.find_and_match(invoice)
 
-        if result.po:
-            invoice.matched_po_id       = result.po.id
-            invoice.match_confidence    = result.confidence
-            invoice.match_discrepancies = str(result.discrepancies)
-            invoice.status = 'matched' if result.matched else 'partial_match'
-            if not result.matched:
-                invoice.status_message = '; '.join(result.discrepancies[:3])
-        else:
-            invoice.status = 'no_match'
-            invoice.status_message = 'No matching purchase order found'
+            if result.po:
+                invoice.matched_po_id       = result.po.id
+                invoice.match_confidence    = result.confidence
+                invoice.match_discrepancies = str(result.discrepancies)
+                invoice.status = 'matched' if result.matched else 'partial_match'
+                if not result.matched:
+                    invoice.status_message = '; '.join(result.discrepancies[:3])
+            else:
+                invoice.status = 'no_match'
+                invoice.status_message = 'No matching purchase order found'
+            db.session.commit()
+        except Exception as e:
+            invoice.status = 'exception'
+            invoice.status_message = f"Matching failed: {e}"
+            db.session.commit()
+            return
+    else:
+        invoice.status = 'matched'
         db.session.commit()
-    except Exception as e:
-        invoice.status = 'exception'
-        invoice.status_message = f"Matching failed: {e}"
-        db.session.commit()
-        return
 
     # Approval routing
     if workflow.check_requires_approval(invoice):

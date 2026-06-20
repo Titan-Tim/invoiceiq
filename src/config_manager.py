@@ -40,6 +40,7 @@ DEFAULT_SETTINGS = {
         "default_expense_account": "300"
     },
     "po_source": {
+        "enabled":     True,           # whether to attempt PO matching at all
         "type":        "connector",   # "connector" | "folder"
         "folder_path": ""
     },

@@ -345,14 +345,25 @@
         </div>
       </div>
 
+      <div class="auth-box mt-3">
+        <div class="form-check form-switch">
+          <input class="form-check-input" type="checkbox" id="w-po-enabled" checked>
+          <label class="form-check-label fw-semibold" for="w-po-enabled">We use Purchase Orders</label>
+        </div>
+        <div class="text-muted small mt-1">
+          Turn this off if invoices should go straight to approval without trying to match a PO first —
+          most small businesses that don't raise POs should leave this off.
+        </div>
+      </div>
+
       <div class="wiz-nav">
         <button class="btn btn-outline-secondary" onclick="goStep(2)">
           <i class="bi bi-arrow-left me-1"></i> Back
         </button>
-        <button class="btn btn-primary px-4" id="btn-step3-next" onclick="goStep(4)">
+        <button class="btn btn-primary px-4" id="btn-step3-next" onclick="savePoSettingAndNext()">
           Continue <i class="bi bi-arrow-right ms-1"></i>
         </button>
-        <button class="btn-skip" onclick="goStep(4)">Skip for now</button>
+        <button class="btn-skip" onclick="savePoSettingAndNext()">Skip for now</button>
       </div>
     </div>
 
@@ -666,6 +677,11 @@ async function saveEmailAndNext() {
   goStep(5);
 }
 
+async function savePoSettingAndNext() {
+  await partialSave({ po_source: { enabled: document.getElementById('w-po-enabled').checked } });
+  goStep(4);
+}
+
 async function finishSetup(skipAI = false) {
   const btn = document.getElementById('btn-finish');
   if (btn) { btn.disabled = true; btn.innerHTML = '<i class="bi bi-arrow-repeat spinning me-1"></i>Saving…'; }
@@ -705,6 +721,7 @@ async function loadSavedSettings() {
 
     if (s.app?.company_name) document.getElementById('w-company').value  = s.app.company_name;
     if (s.app?.currency)     document.getElementById('w-currency').value = s.app.currency;
+    document.getElementById('w-po-enabled').checked = s.po_source?.enabled !== false;
 
     // Pre-select saved system
     const sys = s.finance_system || '';
