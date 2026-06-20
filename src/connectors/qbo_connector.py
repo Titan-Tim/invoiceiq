@@ -116,7 +116,8 @@ class QBOConnector(BaseConnector):
             realm = self._realm_id()
             url   = f"{self._base}/{realm}/companyinfo/{realm}"
             resp  = requests.get(url, headers=self._headers())
-            resp.raise_for_status()
+            if not resp.ok:
+                return False, f"{resp.status_code} {resp.reason}: {resp.text[:500]}"
             name  = resp.json().get('CompanyInfo', {}).get('CompanyName', '')
             return True, f"Connected to {name}"
         except Exception as e:
