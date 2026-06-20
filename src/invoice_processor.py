@@ -125,14 +125,14 @@ def process_new_emails() -> dict:
                 continue
 
             # Approval routing
-            if invoice.status == 'matched' and workflow.check_requires_approval(invoice):
+            if workflow.check_requires_approval(invoice):
                 invoice.status          = 'awaiting_approval'
                 invoice.requires_approval = True
                 workflow.assign_approver(invoice)
                 db.session.add(AuditLog(
                     invoice_id=invoice.id, action='sent_for_approval',
                     user_name='system',
-                    notes=f"Amount £{invoice.total_amount} exceeds approval threshold"
+                    notes='Routed for approval'
                 ))
                 db.session.commit()
 
@@ -206,14 +206,14 @@ def process_uploaded_invoice(invoice_id: int) -> None:
         return
 
     # Approval routing
-    if invoice.status == 'matched' and workflow.check_requires_approval(invoice):
+    if workflow.check_requires_approval(invoice):
         invoice.status            = 'awaiting_approval'
         invoice.requires_approval = True
         workflow.assign_approver(invoice)
         db.session.add(AuditLog(
             invoice_id=invoice.id, action='sent_for_approval',
             user_name='system',
-            notes=f"Amount {invoice.total_amount} exceeds approval threshold"
+            notes='Routed for approval'
         ))
         db.session.commit()
 

@@ -285,6 +285,17 @@
       <button class="btn btn-outline-primary btn-sm" id="btn-add-approver">
         <i class="bi bi-plus me-1"></i>Add Approver
       </button>
+
+      <h6 class="mt-4">Approval Rules</h6>
+      <p class="text-muted small mb-3">
+        Evaluated top to bottom — the <strong>first matching rule</strong> decides who approves an invoice.
+        If nothing matches a fully-matched invoice, the default threshold above applies. Invoices with
+        no PO match or only a partial match are always routed to a human unless a rule says otherwise.
+      </p>
+      <div id="rules-list" class="mb-3"></div>
+      <button class="btn btn-outline-primary btn-sm" id="btn-add-rule">
+        <i class="bi bi-plus me-1"></i>Add Rule
+      </button>
     </div>
 
     <!-- ======================== AI ======================== -->
@@ -462,6 +473,7 @@ async function loadSettings() {
   document.getElementById('approval-enabled').checked   = settings.approval?.enabled !== false;
   document.getElementById('approval-threshold').value   = settings.approval?.threshold_amount || 1000;
   renderApprovers(settings.approval?.approvers || []);
+  renderRules(settings.approval?.rules || []);
 
   // Claude
   document.getElementById('claude-api-key').value = settings.claude?.api_key || '';
@@ -529,6 +541,75 @@ document.getElementById('btn-add-approver').addEventListener('click', () => {
   if (!settings.approval) settings.approval = {approvers:[]};
   settings.approval.approvers.push({name:'',email:'',password:''});
   renderApprovers(settings.approval.approvers);
+});
+
+// ---- Approval Rules ----
+const RULE_CONDITIONS = {
+  amount_gte:        { label: 'Amount is at least',     needsValue: 'number' },
+  no_match:          { label: 'No PO match found',      needsValue: false },
+  partial_match:     { label: 'Partial PO match',       needsValue: false },
+  supplier_contains: { label: 'Supplier name contains', needsValue: 'text' },
+};
+
+function renderRules(rules) {
+  const list = document.getElementById('rules-list');
+  const approverOptions = (settings.approval?.approvers || []).filter(a => a.email);
+
+  if (!rules.length) { list.innerHTML = '<p class="text-muted small">No rules configured — the default threshold above applies to every matched invoice.</p>'; return; }
+
+  list.innerHTML = rules.map((r, i) => {
+    const cond = RULE_CONDITIONS[r.condition] || RULE_CONDITIONS.amount_gte;
+    const valueInput = cond.needsValue === 'number'
+      ? `<input type="number" class="form-control" style="max-width:120px" value="${r.value ?? ''}" min="0" step="0.01"
+                placeholder="Amount" onchange="settings.approval.rules[${i}].value=this.value">`
+      : cond.needsValue === 'text'
+      ? `<input type="text" class="form-control" style="max-width:160px" value="${r.value ?? ''}"
+                placeholder="e.g. Amazon" onchange="settings.approval.rules[${i}].value=this.value">`
+      : `<span class="text-muted small" style="width:160px">—</span>`;
+
+    return `
+    <div class="d-flex gap-2 mb-2 align-items-center">
+      <select class="form-select" style="max-width:200px" onchange="changeRuleCondition(${i}, this.value)">
+        ${Object.entries(RULE_CONDITIONS).map(([key, c]) =>
+          `<option value="${key}" ${r.condition === key ? 'selected' : ''}>${c.label}</option>`).join('')}
+      </select>
+      ${valueInput}
+      <select class="form-select" onchange="settings.approval.rules[${i}].approver_email=this.value">
+        <option value="">Choose approver…</option>
+        ${approverOptions.map(a =>
+          `<option value="${a.email}" ${r.approver_email === a.email ? 'selected' : ''}>${a.name || a.email}</option>`).join('')}
+      </select>
+      <button class="btn btn-outline-secondary btn-sm flex-shrink-0" title="Move up" ${i===0?'disabled':''}
+              onclick="moveRule(${i}, -1)"><i class="bi bi-arrow-up"></i></button>
+      <button class="btn btn-outline-secondary btn-sm flex-shrink-0" title="Move down" ${i===rules.length-1?'disabled':''}
+              onclick="moveRule(${i}, 1)"><i class="bi bi-arrow-down"></i></button>
+      <button class="btn btn-outline-danger btn-sm flex-shrink-0"
+              onclick="settings.approval.rules.splice(${i},1);renderRules(settings.approval.rules)">
+        <i class="bi bi-trash"></i>
+      </button>
+    </div>`;
+  }).join('');
+}
+
+function changeRuleCondition(i, value) {
+  settings.approval.rules[i].condition = value;
+  settings.approval.rules[i].value = '';
+  renderRules(settings.approval.rules);
+}
+
+function moveRule(i, dir) {
+  const rules = settings.approval.rules;
+  const j = i + dir;
+  if (j < 0 || j >= rules.length) return;
+  [rules[i], rules[j]] = [rules[j], rules[i]];
+  renderRules(rules);
+}
+
+document.getElementById('btn-add-rule').addEventListener('click', () => {
+  if (!settings.approval) settings.approval = {rules:[]};
+  if (!settings.approval.rules) settings.approval.rules = [];
+  settings.approval.rules.push({condition:'amount_gte', value:'', approver_email:''});
+  renderRules(settings.approval.rules);
 });
 
 // ---- Change my password ----
@@ -599,6 +680,7 @@ document.getElementById('btn-save').addEventListener('click', async () => {
       enabled: document.getElementById('approval-enabled').checked,
       threshold_amount: +document.getElementById('approval-threshold').value,
       approvers: settings.approval?.approvers || [],
+      rules: settings.approval?.rules || [],
     },
     claude: {
       api_key: document.getElementById('claude-api-key').value,

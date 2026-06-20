@@ -46,7 +46,8 @@ DEFAULT_SETTINGS = {
     "approval": {
         "enabled":          True,
         "threshold_amount": 1000.00,
-        "approvers":        []
+        "approvers":        [],
+        "rules":            []
     },
     "claude": {
         "api_key": "",
