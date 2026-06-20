@@ -432,13 +432,13 @@ async function loadSettings() {
   document.getElementById('qbo-client-secret').value    = settings.qbo?.client_secret || '';
   document.getElementById('qbo-environment').value      = settings.qbo?.environment || 'production';
   document.getElementById('qbo-expense-account').value  = settings.qbo?.default_expense_account || '1';
-  document.getElementById('qbo-redirect-uri').value     = settings.qbo?.redirect_uri || 'http://localhost:5000/auth/qbo/callback';
+  document.getElementById('qbo-redirect-uri').value     = settings.qbo?.redirect_uri || (window.location.origin + '/auth/qbo/callback');
 
   // Xero
   document.getElementById('xero-client-id').value        = settings.xero?.client_id || '';
   document.getElementById('xero-client-secret').value    = settings.xero?.client_secret || '';
   document.getElementById('xero-expense-account').value  = settings.xero?.default_expense_account || '300';
-  document.getElementById('xero-redirect-uri').value     = settings.xero?.redirect_uri || 'http://localhost:5000/auth/xero/callback';
+  document.getElementById('xero-redirect-uri').value     = settings.xero?.redirect_uri || (window.location.origin + '/auth/xero/callback');
 
   // Email
   document.getElementById('email-tenant-id').value   = settings.email?.tenant_id || '';

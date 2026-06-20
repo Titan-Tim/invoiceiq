@@ -257,7 +257,7 @@
           <div class="col-sm-7">
             <label class="form-label">Redirect URI <small class="text-muted">(copy into your Intuit app)</small></label>
             <div class="input-group">
-              <input type="text" class="form-control font-monospace" id="w-qbo-uri" readonly value="http://localhost:5000/auth/qbo/callback">
+              <input type="text" class="form-control font-monospace" id="w-qbo-uri" readonly>
               <button class="btn btn-outline-secondary" onclick="copyUri('w-qbo-uri')" title="Copy"><i class="bi bi-clipboard"></i></button>
             </div>
           </div>
@@ -293,7 +293,7 @@
           <div class="col-sm-7">
             <label class="form-label">Redirect URI <small class="text-muted">(copy into your Xero app)</small></label>
             <div class="input-group">
-              <input type="text" class="form-control font-monospace" id="w-xero-uri" readonly value="http://localhost:5000/auth/xero/callback">
+              <input type="text" class="form-control font-monospace" id="w-xero-uri" readonly>
               <button class="btn btn-outline-secondary" onclick="copyUri('w-xero-uri')" title="Copy"><i class="bi bi-clipboard"></i></button>
             </div>
           </div>
@@ -488,9 +488,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const id  = document.getElementById('w-qbo-id').value.trim();
     const sec = document.getElementById('w-qbo-secret').value.trim();
     const env = document.getElementById('w-qbo-env').value;
+    const uri = document.getElementById('w-qbo-uri').value;
     if (!id || !sec) { alert('Please enter your Client ID and Client Secret first.'); return; }
     // Save credentials first, then redirect to OAuth
-    await partialSave({ finance_system: 'qbo', qbo: { client_id: id, client_secret: sec, environment: env } });
+    await partialSave({ finance_system: 'qbo', qbo: { client_id: id, client_secret: sec, environment: env, redirect_uri: uri } });
     window.location.href = '/auth/qbo/authorize?from=wizard';
   });
 
@@ -498,8 +499,9 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('btn-xero-connect-wiz').addEventListener('click', async () => {
     const id  = document.getElementById('w-xero-id').value.trim();
     const sec = document.getElementById('w-xero-secret').value.trim();
+    const uri = document.getElementById('w-xero-uri').value;
     if (!id || !sec) { alert('Please enter your Client ID and Client Secret first.'); return; }
-    await partialSave({ finance_system: 'xero', xero: { client_id: id, client_secret: sec } });
+    await partialSave({ finance_system: 'xero', xero: { client_id: id, client_secret: sec, redirect_uri: uri } });
     window.location.href = '/auth/xero/authorize?from=wizard';
   });
 
@@ -694,9 +696,13 @@ async function loadSavedSettings() {
     // QBO fields
     if (s.qbo?.client_id)     document.getElementById('w-qbo-id').value     = s.qbo.client_id;
     if (s.qbo?.environment)   document.getElementById('w-qbo-env').value    = s.qbo.environment;
+    document.getElementById('w-qbo-uri').value =
+      s.qbo?.redirect_uri || (window.location.origin + '/auth/qbo/callback');
 
     // Xero fields
     if (s.xero?.client_id)    document.getElementById('w-xero-id').value    = s.xero.client_id;
+    document.getElementById('w-xero-uri').value =
+      s.xero?.redirect_uri || (window.location.origin + '/auth/xero/callback');
 
     // Sage fields
     if (s.sage?.data_path)    document.getElementById('w-sage-path').value  = s.sage.data_path;
