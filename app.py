@@ -743,6 +743,26 @@ def create_app():
 
     def _post_to_finance(inv: Invoice):
         connector = get_connector()
+
+        # Vendor lookup may have failed when the invoice was first processed
+        # (e.g. the finance connection was broken at the time) — retry it
+        # now rather than silently posting a null VendorRef, which QuickBooks
+        # rejects with an unhelpful generic validation error.
+        if not inv.supplier_ref and inv.supplier_name:
+            try:
+                found = connector.find_vendor(inv.supplier_name)
+                if found:
+                    inv.supplier_ref = found
+                    db.session.commit()
+            except Exception:
+                pass
+
+        if not inv.supplier_ref:
+            raise ValueError(
+                f"No {get_system_name()} vendor matches '{inv.supplier_name}'. "
+                f"Create the vendor in {get_system_name()} first, or check the supplier name is correct."
+            )
+
         ref = connector.post_invoice({
             'supplier_ref':   inv.supplier_ref,
             'invoice_number': inv.invoice_number,
