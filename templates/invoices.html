@@ -1,0 +1,239 @@
+{% extends "base.html" %}
+{% block title %}Invoices{% endblock %}
+{% block page_title %}Invoice Queue{% endblock %}
+
+{% block content %}
+<!-- Drop zone -->
+<div class="drop-zone" id="drop-zone" onclick="document.getElementById('file-input').click()">
+  <input type="file" id="file-input" multiple accept=".pdf,.png,.jpg,.jpeg,.tiff,.webp" class="d-none">
+  <div class="drop-zone-icon"><i class="bi bi-cloud-upload"></i></div>
+  <div class="drop-zone-text">
+    <strong>Drop invoice files here to upload</strong>
+    <small>PDF, PNG, JPG or TIFF — multiple files supported — or click to browse</small>
+  </div>
+  <button class="btn btn-sm btn-outline-primary drop-zone-btn" tabindex="-1">
+    <i class="bi bi-folder2-open me-1"></i>Browse
+  </button>
+</div>
+<div id="upload-list"></div>
+
+<!-- Filter bar -->
+<div class="filter-bar">
+  <div class="input-group" style="max-width:280px">
+    <span class="input-group-text bg-white border-end-0"><i class="bi bi-search text-muted"></i></span>
+    <input type="text" id="search-input" class="form-control border-start-0 ps-0"
+           placeholder="Supplier, invoice #, PO ref…">
+  </div>
+  <select id="status-filter" class="form-select" style="max-width:180px">
+    <option value="">All Statuses</option>
+    <option value="received">Received</option>
+    <option value="extracting">Extracting</option>
+    <option value="matched">Matched</option>
+    <option value="partial_match">Partial Match</option>
+    <option value="no_match">No Match</option>
+    <option value="awaiting_approval">Awaiting Approval</option>
+    <option value="approved">Approved</option>
+    <option value="rejected">Rejected</option>
+    <option value="ready_to_pay">Ready to Pay</option>
+    <option value="exception">Exception</option>
+  </select>
+  <button class="btn btn-outline-secondary btn-sm ms-auto" id="btn-refresh">
+    <i class="bi bi-arrow-clockwise"></i> Refresh
+  </button>
+</div>
+
+<!-- Invoice table -->
+<div class="panel">
+  <div class="panel-body">
+    <table class="ap-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Supplier</th>
+          <th>Invoice #</th>
+          <th>PO Ref</th>
+          <th>Amount</th>
+          <th>Received</th>
+          <th>Match</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody id="invoice-tbody">
+        <tr><td colspan="8" class="text-center py-4 text-muted">Loading…</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="d-flex align-items-center justify-content-between px-4 py-3 border-top">
+    <span class="text-muted small" id="page-info"></span>
+    <div class="ap-pager" id="pager"></div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let currentPage = 1;
+let searchTimer = null;
+
+function loadInvoices(page = 1) {
+  currentPage = page;
+  const search = document.getElementById('search-input').value.trim();
+  const status = document.getElementById('status-filter').value;
+  const params = new URLSearchParams({ page, per_page: 25, search, status });
+
+  document.getElementById('invoice-tbody').innerHTML =
+    `<tr><td colspan="8" class="text-center py-4 text-muted">Loading…</td></tr>`;
+
+  fetch('/api/invoices?' + params)
+    .then(r => r.json())
+    .then(data => {
+      const tbody = document.getElementById('invoice-tbody');
+      if (data.invoices.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state"><i class="bi bi-inbox"></i>No invoices found</div></td></tr>`;
+        document.getElementById('page-info').textContent = '';
+        document.getElementById('pager').innerHTML = '';
+        return;
+      }
+
+      tbody.innerHTML = data.invoices.map(inv => `
+        <tr onclick="location.href='/invoices/${inv.id}'">
+          <td class="text-muted">${inv.id}</td>
+          <td><strong>${inv.supplier_name || '—'}</strong>
+            ${inv.requires_approval ? '<i class="bi bi-person-check text-warning ms-1" title="Requires approval"></i>' : ''}
+          </td>
+          <td class="text-muted">${inv.invoice_number || '—'}</td>
+          <td>${inv.po_reference ? `<code class="text-primary">${inv.po_reference}</code>` : '<span class="text-muted">—</span>'}</td>
+          <td class="fw-semibold">${inv.total_amount != null ? formatCurrency(inv.total_amount) : '—'}</td>
+          <td class="text-muted" style="white-space:nowrap">${formatDate(inv.email_received_at)}</td>
+          <td>${inv.match_confidence != null ? confidenceBar(Math.round(inv.match_confidence * 100)) : '—'}</td>
+          <td>${statusBadge(inv.status, inv.status_label, inv.status_color)}</td>
+        </tr>`).join('');
+
+      const start = (data.page - 1) * data.per_page + 1;
+      const end = Math.min(data.page * data.per_page, data.total);
+      document.getElementById('page-info').textContent =
+        `Showing ${start}–${end} of ${data.total}`;
+
+      renderPager(data.page, data.pages);
+    });
+}
+
+function renderPager(page, pages) {
+  const pager = document.getElementById('pager');
+  if (pages <= 1) { pager.innerHTML = ''; return; }
+  let html = `<button onclick="loadInvoices(${page-1})" ${page===1?'disabled':''}>‹</button>`;
+  for (let p = Math.max(1,page-2); p <= Math.min(pages,page+2); p++) {
+    html += `<button onclick="loadInvoices(${p})" class="${p===page?'active':''}">${p}</button>`;
+  }
+  html += `<button onclick="loadInvoices(${page+1})" ${page===pages?'disabled':''}>›</button>`;
+  pager.innerHTML = html;
+}
+
+document.getElementById('search-input').addEventListener('input', () => {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(() => loadInvoices(1), 350);
+});
+document.getElementById('status-filter').addEventListener('change', () => loadInvoices(1));
+document.getElementById('btn-refresh').addEventListener('click', () => loadInvoices(currentPage));
+
+function onEmailPollComplete() { loadInvoices(currentPage); }
+loadInvoices();
+
+// ── Drag-and-drop upload ────────────────────────────────────────────────────
+const dropZone  = document.getElementById('drop-zone');
+const fileInput = document.getElementById('file-input');
+
+// Drag events on the zone itself
+dropZone.addEventListener('dragenter', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+dropZone.addEventListener('dragover',  e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+dropZone.addEventListener('dragleave', e => { if (!dropZone.contains(e.relatedTarget)) dropZone.classList.remove('drag-over'); });
+dropZone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropZone.classList.remove('drag-over');
+  handleFiles([...e.dataTransfer.files]);
+});
+
+// Also accept drops anywhere on the page for convenience
+document.addEventListener('dragenter', e => { e.preventDefault(); });
+document.addEventListener('dragover',  e => { e.preventDefault(); });
+document.addEventListener('drop', e => {
+  e.preventDefault();
+  if (!e.dataTransfer.files.length) return;
+  if (!dropZone.contains(e.target)) handleFiles([...e.dataTransfer.files]);
+});
+
+// Browse
+fileInput.addEventListener('change', () => {
+  handleFiles([...fileInput.files]);
+  fileInput.value = '';
+});
+
+function handleFiles(files) {
+  const allowed = ['application/pdf','image/png','image/jpeg','image/tiff','image/webp'];
+  const valid = files.filter(f => allowed.includes(f.type) ||
+    /\.(pdf|png|jpe?g|tiff?|webp)$/i.test(f.name));
+  if (!valid.length) return;
+  uploadFiles(valid);
+}
+
+async function uploadFiles(files) {
+  const list = document.getElementById('upload-list');
+
+  // Create a progress item for each file
+  const items = files.map(f => {
+    const div = document.createElement('div');
+    div.className = 'upload-item';
+    div.innerHTML = `
+      <i class="bi bi-file-earmark-pdf text-danger flex-shrink-0"></i>
+      <span class="filename">${f.name}</span>
+      <span class="upload-status text-muted">
+        <i class="bi bi-arrow-repeat spinning me-1"></i>Uploading…
+      </span>`;
+    list.prepend(div);
+    return { file: f, el: div };
+  });
+
+  // Send all files in one request
+  const form = new FormData();
+  files.forEach(f => form.append('files', f));
+
+  let result;
+  try {
+    result = await fetch('/api/invoices/upload', { method: 'POST', body: form }).then(r => r.json());
+  } catch(err) {
+    items.forEach(({ el }) => {
+      el.classList.add('error');
+      el.querySelector('.upload-status').innerHTML =
+        '<i class="bi bi-x-circle text-danger me-1"></i>Upload failed';
+    });
+    return;
+  }
+
+  // Match results back to items
+  result.invoices?.forEach((res, i) => {
+    const item = items[i];
+    if (!item) return;
+    if (res.error) {
+      item.el.classList.add('error');
+      item.el.querySelector('.upload-status').innerHTML =
+        `<i class="bi bi-x-circle text-danger me-1"></i>${res.error}`;
+    } else {
+      item.el.classList.add('done');
+      item.el.querySelector('.upload-status').innerHTML =
+        `<i class="bi bi-check-circle text-success me-1"></i>
+         Processing… <a href="/invoices/${res.id}" class="ms-1">View</a>`;
+    }
+  });
+
+  // Refresh the invoice list after a short delay so new rows appear
+  setTimeout(() => loadInvoices(1), 1500);
+
+  // Auto-remove completed items after 8 seconds
+  setTimeout(() => {
+    items.forEach(({ el }) => {
+      if (el.classList.contains('done')) el.remove();
+    });
+  }, 8000);
+}
+</script>
+{% endblock %}

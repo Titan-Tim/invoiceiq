@@ -1,0 +1,700 @@
+{% extends "base.html" %}
+{% block title %}Settings{% endblock %}
+{% block page_title %}Settings{% endblock %}
+
+{% block content %}
+<div class="row g-3">
+
+  <!-- Nav -->
+  <div class="col-lg-2">
+    <div class="settings-nav nav flex-column">
+      <a class="nav-link active" data-tab="system"><i class="bi bi-hdd-stack me-2"></i>Finance System</a>
+      <a class="nav-link" data-tab="email"><i class="bi bi-envelope me-2"></i>Email</a>
+      <a class="nav-link" data-tab="po"><i class="bi bi-file-earmark-text me-2"></i>PO Source</a>
+      <a class="nav-link" data-tab="approval"><i class="bi bi-person-check me-2"></i>Approval</a>
+      <a class="nav-link" data-tab="ai"><i class="bi bi-cpu me-2"></i>AI / Claude</a>
+      <a class="nav-link" data-tab="app"><i class="bi bi-sliders me-2"></i>General</a>
+      <a class="nav-link" data-tab="account"><i class="bi bi-shield-lock me-2"></i>My Account</a>
+    </div>
+  </div>
+
+  <div class="col-lg-10">
+
+    <!-- ======================== FINANCE SYSTEM ======================== -->
+    <div class="settings-section" id="tab-system">
+      <h6>Finance System</h6>
+      <p class="text-muted small mb-3">Select the accounting software this installation connects to.</p>
+
+      <!-- System selector -->
+      <div class="d-flex gap-3 mb-4 flex-wrap">
+        {% for key, label, icon in [('sage','Sage 50','bi-hdd'), ('qbo','QuickBooks Online','bi-cloud'), ('xero','Xero','bi-x-circle')] %}
+        <label class="system-card" id="sys-card-{{ key }}">
+          <input type="radio" name="finance-system" value="{{ key }}" class="d-none">
+          <i class="bi {{ icon }} fs-2"></i>
+          <span class="fw-semibold">{{ label }}</span>
+        </label>
+        {% endfor %}
+      </div>
+
+      <!-- Sage config -->
+      <div id="config-sage" class="system-config">
+        <div class="row g-3">
+          <div class="col-md-8">
+            <label class="form-label">Sage Data Path</label>
+            <input type="text" class="form-control font-monospace" id="sage-data-path"
+                   placeholder="C:\ProgramData\Sage\Accounts\2024\Company.001">
+            <div class="form-text">Full path to your Sage company data folder.</div>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">SDO Version</label>
+            <select class="form-select" id="sage-sdo-version">
+              <option value="300">v30 — 2024</option>
+              <option value="290">v29 — 2023</option>
+              <option value="280">v28 — 2022</option>
+              <option value="270">v27 — 2021</option>
+            </select>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Username</label>
+            <input type="text" class="form-control" id="sage-username" placeholder="Manager">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Password</label>
+            <input type="password" class="form-control" id="sage-password">
+          </div>
+        </div>
+        <div class="mt-3 d-flex gap-2 align-items-center">
+          <button class="btn btn-outline-primary btn-sm" id="btn-test-sage">
+            <i class="bi bi-plug me-1"></i>Test Connection
+          </button>
+          <button class="btn btn-outline-secondary btn-sm" id="btn-sync-pos-sage">
+            <i class="bi bi-arrow-repeat me-1"></i>Sync POs Now
+          </button>
+          <span id="sage-test-result" class="small"></span>
+        </div>
+      </div>
+
+      <!-- QBO config -->
+      <div id="config-qbo" class="system-config d-none">
+        <div class="alert alert-info d-flex gap-2 small mb-3">
+          <i class="bi bi-info-circle-fill flex-shrink-0 mt-1"></i>
+          <div>You need a free <strong>Intuit Developer</strong> account at
+            <a href="https://developer.intuit.com" target="_blank">developer.intuit.com</a>.
+            Create an app, add <strong>Accounting</strong> scope, and set the redirect URI below.
+          </div>
+        </div>
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label class="form-label">Client ID</label>
+            <input type="text" class="form-control font-monospace" id="qbo-client-id">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Client Secret</label>
+            <input type="password" class="form-control" id="qbo-client-secret">
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Environment</label>
+            <select class="form-select" id="qbo-environment">
+              <option value="production">Production</option>
+              <option value="sandbox">Sandbox (testing)</option>
+            </select>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Default Expense Account ID</label>
+            <input type="text" class="form-control" id="qbo-expense-account" placeholder="1">
+            <div class="form-text">QBO account ID for bill lines.</div>
+          </div>
+          <div class="col-md-8">
+            <label class="form-label">Redirect URI <small class="text-muted">(add this to your Intuit app)</small></label>
+            <div class="input-group">
+              <input type="text" class="form-control font-monospace" id="qbo-redirect-uri" readonly>
+              <button class="btn btn-outline-secondary" onclick="copyField('qbo-redirect-uri')" title="Copy">
+                <i class="bi bi-clipboard"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+        <div class="mt-3 p-3 rounded border" id="qbo-auth-status-box">
+          <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+            <div id="qbo-auth-status"><i class="bi bi-circle text-muted me-1"></i>Not connected</div>
+            <div class="d-flex gap-2">
+              <button class="btn btn-primary btn-sm" id="btn-qbo-connect">
+                <i class="bi bi-box-arrow-up-right me-1"></i>Connect to QuickBooks
+              </button>
+              <button class="btn btn-outline-danger btn-sm d-none" id="btn-qbo-disconnect">
+                <i class="bi bi-x-circle me-1"></i>Disconnect
+              </button>
+            </div>
+          </div>
+        </div>
+        <div class="mt-2 d-flex gap-2">
+          <button class="btn btn-outline-secondary btn-sm" id="btn-sync-pos-qbo">
+            <i class="bi bi-arrow-repeat me-1"></i>Sync POs from QBO
+          </button>
+          <span id="qbo-sync-result" class="small align-self-center"></span>
+        </div>
+      </div>
+
+      <!-- Xero config -->
+      <div id="config-xero" class="system-config d-none">
+        <div class="alert alert-info d-flex gap-2 small mb-3">
+          <i class="bi bi-info-circle-fill flex-shrink-0 mt-1"></i>
+          <div>Create a free <strong>Xero Developer</strong> app at
+            <a href="https://developer.xero.com" target="_blank">developer.xero.com</a>.
+            Set the redirect URI below and enable <strong>Accounting</strong> scopes.
+          </div>
+        </div>
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label class="form-label">Client ID</label>
+            <input type="text" class="form-control font-monospace" id="xero-client-id">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Client Secret</label>
+            <input type="password" class="form-control" id="xero-client-secret">
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Default Expense Account Code</label>
+            <input type="text" class="form-control" id="xero-expense-account" placeholder="300">
+            <div class="form-text">Xero account code (e.g. 300 = Purchases).</div>
+          </div>
+          <div class="col-md-8">
+            <label class="form-label">Redirect URI <small class="text-muted">(add this to your Xero app)</small></label>
+            <div class="input-group">
+              <input type="text" class="form-control font-monospace" id="xero-redirect-uri" readonly>
+              <button class="btn btn-outline-secondary" onclick="copyField('xero-redirect-uri')" title="Copy">
+                <i class="bi bi-clipboard"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+        <div class="mt-3 p-3 rounded border" id="xero-auth-status-box">
+          <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+            <div id="xero-auth-status"><i class="bi bi-circle text-muted me-1"></i>Not connected</div>
+            <div class="d-flex gap-2">
+              <button class="btn btn-primary btn-sm" id="btn-xero-connect">
+                <i class="bi bi-box-arrow-up-right me-1"></i>Connect to Xero
+              </button>
+              <button class="btn btn-outline-danger btn-sm d-none" id="btn-xero-disconnect">
+                <i class="bi bi-x-circle me-1"></i>Disconnect
+              </button>
+            </div>
+          </div>
+        </div>
+        <div class="mt-2 d-flex gap-2">
+          <button class="btn btn-outline-secondary btn-sm" id="btn-sync-pos-xero">
+            <i class="bi bi-arrow-repeat me-1"></i>Sync POs from Xero
+          </button>
+          <span id="xero-sync-result" class="small align-self-center"></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ======================== EMAIL ======================== -->
+    <div class="settings-section d-none" id="tab-email">
+      <h6>Office 365 Email Connection</h6>
+      <p class="text-muted small mb-3">
+        Create an Azure App Registration with <code>Mail.Read</code> and <code>Mail.ReadWrite</code> permissions
+        on the monitored mailbox.
+      </p>
+      <div class="row g-3">
+        <div class="col-md-6">
+          <label class="form-label">Tenant ID</label>
+          <input type="text" class="form-control font-monospace" id="email-tenant-id" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx">
+        </div>
+        <div class="col-md-6">
+          <label class="form-label">Application (Client) ID</label>
+          <input type="text" class="form-control font-monospace" id="email-client-id" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx">
+        </div>
+        <div class="col-md-6">
+          <label class="form-label">Client Secret</label>
+          <input type="password" class="form-control" id="email-client-secret">
+        </div>
+        <div class="col-md-6">
+          <label class="form-label">Monitored Mailbox</label>
+          <input type="email" class="form-control" id="email-mailbox" placeholder="ap@yourcompany.com">
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Poll Interval (minutes)</label>
+          <input type="number" class="form-control" id="email-interval" min="1" max="60" value="5">
+        </div>
+        <div class="col-md-8">
+          <label class="form-label">Processed Folder Name</label>
+          <input type="text" class="form-control" id="email-folder" placeholder="AP Processed">
+        </div>
+      </div>
+      <div class="mt-3 d-flex gap-2 align-items-center">
+        <button class="btn btn-outline-primary btn-sm" id="btn-test-email">
+          <i class="bi bi-plug me-1"></i>Test Connection
+        </button>
+        <span id="email-test-result" class="small"></span>
+      </div>
+    </div>
+
+    <!-- ======================== PO SOURCE ======================== -->
+    <div class="settings-section d-none" id="tab-po">
+      <h6>Purchase Order Source</h6>
+      <p class="text-muted small mb-3">Where should the system look for POs to match against incoming invoices?</p>
+      <div class="mb-3">
+        <div class="form-check mb-2">
+          <input class="form-check-input" type="radio" name="po-source" id="po-source-connector" value="connector">
+          <label class="form-check-label" for="po-source-connector">
+            <strong>From finance system</strong>
+            <div class="text-muted small">Pull POs directly from the configured accounting software</div>
+          </label>
+        </div>
+        <div class="form-check">
+          <input class="form-check-input" type="radio" name="po-source" id="po-source-folder" value="folder">
+          <label class="form-check-label" for="po-source-folder">
+            <strong>PDF Folder</strong>
+            <div class="text-muted small">Read PO PDF files from a Windows folder using AI extraction</div>
+          </label>
+        </div>
+      </div>
+      <div id="folder-path-group" style="display:none">
+        <label class="form-label">Folder Path</label>
+        <input type="text" class="form-control font-monospace" id="po-folder-path" placeholder="C:\AP\Purchase Orders">
+        <div class="form-text">All PDF files in this folder will be treated as purchase orders.</div>
+        <button class="btn btn-outline-secondary btn-sm mt-2" id="btn-scan-folder">
+          <i class="bi bi-arrow-repeat me-1"></i>Scan Folder Now
+        </button>
+      </div>
+    </div>
+
+    <!-- ======================== APPROVAL ======================== -->
+    <div class="settings-section d-none" id="tab-approval">
+      <h6>Approval Workflow</h6>
+      <p class="text-muted small mb-3">Invoices at or above the threshold require approval before posting.</p>
+      <div class="row g-3 mb-4">
+        <div class="col-12">
+          <div class="form-check form-switch">
+            <input class="form-check-input" type="checkbox" id="approval-enabled">
+            <label class="form-check-label" for="approval-enabled">Enable approval workflow</label>
+          </div>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Approval Threshold</label>
+          <div class="input-group">
+            <span class="input-group-text">£</span>
+            <input type="number" class="form-control" id="approval-threshold" min="0" step="0.01">
+          </div>
+        </div>
+      </div>
+      <h6>Approvers</h6>
+      <div id="approvers-list" class="mb-3"></div>
+      <button class="btn btn-outline-primary btn-sm" id="btn-add-approver">
+        <i class="bi bi-plus me-1"></i>Add Approver
+      </button>
+    </div>
+
+    <!-- ======================== AI ======================== -->
+    <div class="settings-section d-none" id="tab-ai">
+      <h6>Claude AI — Invoice Extraction</h6>
+      <p class="text-muted small mb-3">
+        Get your API key from <strong>console.anthropic.com</strong>. Claude reads
+        invoice PDFs and images and extracts structured data automatically.
+      </p>
+      <div class="row g-3">
+        <div class="col-md-8">
+          <label class="form-label">Claude API Key</label>
+          <input type="password" class="form-control font-monospace" id="claude-api-key" placeholder="sk-ant-…">
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Model</label>
+          <select class="form-select" id="claude-model">
+            <option value="claude-opus-4-7">Claude Opus 4.7 — Best accuracy</option>
+            <option value="claude-sonnet-4-6">Claude Sonnet 4.6 — Faster</option>
+            <option value="claude-haiku-4-5-20251001">Claude Haiku 4.5 — Economy</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- ======================== GENERAL ======================== -->
+    <div class="settings-section d-none" id="tab-app">
+      <h6>General</h6>
+      <div class="row g-3">
+        <div class="col-md-6">
+          <label class="form-label">Company Name</label>
+          <input type="text" class="form-control" id="app-company">
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">Currency</label>
+          <select class="form-select" id="app-currency">
+            <option value="GBP">GBP (£)</option>
+            <option value="EUR">EUR (€)</option>
+            <option value="USD">USD ($)</option>
+          </select>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">Dashboard Port</label>
+          <input type="number" class="form-control" id="app-port" value="5000">
+        </div>
+      </div>
+    </div>
+
+    <!-- ======================== MY ACCOUNT ======================== -->
+    <div class="settings-section d-none" id="tab-account">
+      <h6>Change Password</h6>
+      <p class="text-muted small mb-3">Update the password you use to sign in to InvoiceIQ.</p>
+      <div class="row g-3" style="max-width:480px;">
+        <div class="col-12">
+          <label class="form-label">Current Password</label>
+          <input type="password" class="form-control" id="acct-current-password">
+        </div>
+        <div class="col-12">
+          <label class="form-label">New Password</label>
+          <input type="password" class="form-control" id="acct-new-password" placeholder="At least 8 characters">
+        </div>
+        <div class="col-12">
+          <label class="form-label">Confirm New Password</label>
+          <input type="password" class="form-control" id="acct-confirm-password">
+        </div>
+      </div>
+      <div id="acct-password-msg" class="small mt-2"></div>
+      <div class="mt-3">
+        <button class="btn btn-primary" id="btn-change-password">
+          <i class="bi bi-shield-check me-1"></i>Update Password
+        </button>
+      </div>
+    </div>
+
+    <!-- Save -->
+    <div class="d-flex justify-content-end mt-3">
+      <button class="btn btn-primary px-4" id="btn-save">
+        <i class="bi bi-floppy me-1"></i>Save Settings
+      </button>
+    </div>
+
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let settings = {};
+
+// ---- Tab switching ----
+document.querySelectorAll('.settings-nav .nav-link').forEach(link => {
+  link.addEventListener('click', e => {
+    e.preventDefault();
+    document.querySelectorAll('.settings-nav .nav-link').forEach(l => l.classList.remove('active'));
+    link.classList.add('active');
+    document.querySelectorAll('.settings-section').forEach(s => s.classList.add('d-none'));
+    document.getElementById(`tab-${link.dataset.tab}`).classList.remove('d-none');
+    document.getElementById('btn-save').closest('.d-flex').style.display =
+      link.dataset.tab === 'account' ? 'none' : '';
+  });
+});
+
+// ---- System cards ----
+document.querySelectorAll('[name="finance-system"]').forEach(r => {
+  r.closest('.system-card').addEventListener('click', () => {
+    document.querySelectorAll('.system-card').forEach(c => c.classList.remove('selected'));
+    r.closest('.system-card').classList.add('selected');
+    r.checked = true;
+    document.querySelectorAll('.system-config').forEach(c => c.classList.add('d-none'));
+    document.getElementById(`config-${r.value}`).classList.remove('d-none');
+  });
+});
+
+// ---- PO source toggle ----
+document.querySelectorAll('[name="po-source"]').forEach(r =>
+  r.addEventListener('change', e =>
+    document.getElementById('folder-path-group').style.display =
+      e.target.value === 'folder' ? 'block' : 'none'
+  )
+);
+
+// ---- Load settings ----
+async function loadSettings() {
+  settings = await fetch('/api/settings').then(r => r.json());
+
+  const usersResp = await fetch('/api/users').then(r => r.json()).catch(() => ({users:[]}));
+  usersByEmail = {};
+  (usersResp.users || []).forEach(u => { if (u.email) usersByEmail[u.email.toLowerCase()] = u; });
+
+  // System
+  const sys = settings.finance_system || 'sage';
+  const radio = document.querySelector(`[name="finance-system"][value="${sys}"]`);
+  if (radio) { radio.checked = true; radio.closest('.system-card').classList.add('selected'); }
+  document.querySelectorAll('.system-config').forEach(c => c.classList.add('d-none'));
+  document.getElementById(`config-${sys}`)?.classList.remove('d-none');
+
+  // Sage
+  document.getElementById('sage-data-path').value    = settings.sage?.data_path || '';
+  document.getElementById('sage-sdo-version').value  = settings.sage?.sdo_version || '300';
+  document.getElementById('sage-username').value     = settings.sage?.username || '';
+  document.getElementById('sage-password').value     = settings.sage?.password || '';
+
+  // QBO
+  document.getElementById('qbo-client-id').value        = settings.qbo?.client_id || '';
+  document.getElementById('qbo-client-secret').value    = settings.qbo?.client_secret || '';
+  document.getElementById('qbo-environment').value      = settings.qbo?.environment || 'production';
+  document.getElementById('qbo-expense-account').value  = settings.qbo?.default_expense_account || '1';
+  document.getElementById('qbo-redirect-uri').value     = settings.qbo?.redirect_uri || 'http://localhost:5000/auth/qbo/callback';
+
+  // Xero
+  document.getElementById('xero-client-id').value        = settings.xero?.client_id || '';
+  document.getElementById('xero-client-secret').value    = settings.xero?.client_secret || '';
+  document.getElementById('xero-expense-account').value  = settings.xero?.default_expense_account || '300';
+  document.getElementById('xero-redirect-uri').value     = settings.xero?.redirect_uri || 'http://localhost:5000/auth/xero/callback';
+
+  // Email
+  document.getElementById('email-tenant-id').value   = settings.email?.tenant_id || '';
+  document.getElementById('email-client-id').value   = settings.email?.client_id || '';
+  document.getElementById('email-client-secret').value = settings.email?.client_secret || '';
+  document.getElementById('email-mailbox').value     = settings.email?.mailbox || '';
+  document.getElementById('email-interval').value   = settings.email?.polling_interval_minutes || 5;
+  document.getElementById('email-folder').value     = settings.email?.processed_folder || 'AP Processed';
+
+  // PO source
+  const poType = settings.po_source?.type || 'connector';
+  document.getElementById(poType === 'folder' ? 'po-source-folder' : 'po-source-connector').checked = true;
+  document.getElementById('po-folder-path').value = settings.po_source?.folder_path || '';
+  document.getElementById('folder-path-group').style.display = poType === 'folder' ? 'block' : 'none';
+
+  // Approval
+  document.getElementById('approval-enabled').checked   = settings.approval?.enabled !== false;
+  document.getElementById('approval-threshold').value   = settings.approval?.threshold_amount || 1000;
+  renderApprovers(settings.approval?.approvers || []);
+
+  // Claude
+  document.getElementById('claude-api-key').value = settings.claude?.api_key || '';
+  document.getElementById('claude-model').value   = settings.claude?.model || 'claude-opus-4-7';
+
+  // App
+  document.getElementById('app-company').value  = settings.app?.company_name || '';
+  document.getElementById('app-currency').value = settings.app?.currency || 'GBP';
+  document.getElementById('app-port').value     = settings.app?.port || 5000;
+
+  // Auth status for OAuth systems
+  refreshAuthStatus();
+
+  // Handle return from OAuth
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('auth_success')) showToast(`Connected to ${params.get('auth_success').toUpperCase()} successfully`, 'success');
+  if (params.get('auth_error'))   showToast(`Connection failed: ${params.get('auth_error')}`, 'danger');
+}
+
+async function refreshAuthStatus() {
+  const data = await fetch('/api/auth/status').then(r => r.json()).catch(() => ({}));
+  const sys  = data.system;
+  if (!sys || sys === 'sage') return;
+
+  const statusEl   = document.getElementById(`${sys}-auth-status`);
+  const connectBtn = document.getElementById(`btn-${sys}-connect`);
+  const disconnBtn = document.getElementById(`btn-${sys}-disconnect`);
+
+  if (data.authenticated) {
+    statusEl.innerHTML = `<i class="bi bi-check-circle-fill text-success me-1"></i>${data.connection_info || 'Connected'}`;
+    connectBtn?.classList.add('d-none');
+    disconnBtn?.classList.remove('d-none');
+  } else {
+    statusEl.innerHTML = `<i class="bi bi-circle text-muted me-1"></i>Not connected`;
+    connectBtn?.classList.remove('d-none');
+    disconnBtn?.classList.add('d-none');
+  }
+}
+
+// ---- Approvers ----
+let usersByEmail = {};
+
+function renderApprovers(approvers) {
+  const list = document.getElementById('approvers-list');
+  if (!approvers.length) { list.innerHTML = '<p class="text-muted small">No approvers configured.</p>'; return; }
+  list.innerHTML = approvers.map((a, i) => {
+    const hasPassword = !!usersByEmail[(a.email||'').toLowerCase()]?.has_password;
+    const pwPlaceholder = hasPassword ? 'Password set — leave blank to keep' : 'Set an initial password';
+    return `
+    <div class="d-flex gap-2 mb-2 align-items-center">
+      <input type="text" class="form-control" value="${a.name||''}" placeholder="Full name"
+             onchange="settings.approval.approvers[${i}].name=this.value">
+      <input type="email" class="form-control" value="${a.email||''}" placeholder="email@company.com"
+             onchange="settings.approval.approvers[${i}].email=this.value">
+      <input type="password" class="form-control" placeholder="${pwPlaceholder}"
+             onchange="settings.approval.approvers[${i}].password=this.value">
+      <button class="btn btn-outline-danger btn-sm flex-shrink-0"
+              onclick="settings.approval.approvers.splice(${i},1);renderApprovers(settings.approval.approvers)">
+        <i class="bi bi-trash"></i>
+      </button>
+    </div>`;
+  }).join('');
+}
+document.getElementById('btn-add-approver').addEventListener('click', () => {
+  if (!settings.approval) settings.approval = {approvers:[]};
+  settings.approval.approvers.push({name:'',email:'',password:''});
+  renderApprovers(settings.approval.approvers);
+});
+
+// ---- Change my password ----
+document.getElementById('btn-change-password').addEventListener('click', async () => {
+  const msg = document.getElementById('acct-password-msg');
+  const cur = document.getElementById('acct-current-password').value;
+  const next = document.getElementById('acct-new-password').value;
+  const conf = document.getElementById('acct-confirm-password').value;
+
+  msg.className = 'small mt-2 text-danger';
+  if (!cur || !next) { msg.textContent = 'Please fill in all fields.'; return; }
+  if (next.length < 8) { msg.textContent = 'New password must be at least 8 characters.'; return; }
+  if (next !== conf) { msg.textContent = 'New passwords do not match.'; return; }
+
+  const r = await fetch('/api/account/change-password', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ current_password: cur, new_password: next }),
+  }).then(r => r.json());
+
+  if (r.success) {
+    msg.className = 'small mt-2 text-success';
+    msg.textContent = 'Password updated successfully.';
+    document.getElementById('acct-current-password').value = '';
+    document.getElementById('acct-new-password').value = '';
+    document.getElementById('acct-confirm-password').value = '';
+  } else {
+    msg.className = 'small mt-2 text-danger';
+    msg.textContent = r.error || 'Could not update password.';
+  }
+});
+
+// ---- Save ----
+document.getElementById('btn-save').addEventListener('click', async () => {
+  const sys    = document.querySelector('[name="finance-system"]:checked')?.value || 'sage';
+  const poType = document.querySelector('[name="po-source"]:checked')?.value || 'connector';
+  const payload = {
+    finance_system: sys,
+    email: {
+      tenant_id: document.getElementById('email-tenant-id').value,
+      client_id: document.getElementById('email-client-id').value,
+      client_secret: document.getElementById('email-client-secret').value,
+      mailbox: document.getElementById('email-mailbox').value,
+      polling_interval_minutes: +document.getElementById('email-interval').value,
+      processed_folder: document.getElementById('email-folder').value,
+    },
+    sage: {
+      data_path:   document.getElementById('sage-data-path').value,
+      sdo_version: document.getElementById('sage-sdo-version').value,
+      username:    document.getElementById('sage-username').value,
+      password:    document.getElementById('sage-password').value,
+    },
+    qbo: {
+      client_id:               document.getElementById('qbo-client-id').value,
+      client_secret:           document.getElementById('qbo-client-secret').value,
+      environment:             document.getElementById('qbo-environment').value,
+      redirect_uri:            document.getElementById('qbo-redirect-uri').value,
+      default_expense_account: document.getElementById('qbo-expense-account').value,
+    },
+    xero: {
+      client_id:               document.getElementById('xero-client-id').value,
+      client_secret:           document.getElementById('xero-client-secret').value,
+      redirect_uri:            document.getElementById('xero-redirect-uri').value,
+      default_expense_account: document.getElementById('xero-expense-account').value,
+    },
+    po_source: { type: poType, folder_path: document.getElementById('po-folder-path').value },
+    approval: {
+      enabled: document.getElementById('approval-enabled').checked,
+      threshold_amount: +document.getElementById('approval-threshold').value,
+      approvers: settings.approval?.approvers || [],
+    },
+    claude: {
+      api_key: document.getElementById('claude-api-key').value,
+      model:   document.getElementById('claude-model').value,
+    },
+    app: {
+      company_name: document.getElementById('app-company').value,
+      currency:     document.getElementById('app-currency').value,
+      port:         +document.getElementById('app-port').value,
+      attachment_storage_path: settings.app?.attachment_storage_path || 'invoices',
+    },
+  };
+  const r = await fetch('/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}).then(r=>r.json());
+  if (r.success) showToast('Settings saved','success'); else showToast('Save failed','danger');
+});
+
+// ---- Test / connect / disconnect buttons ----
+document.getElementById('btn-test-sage').addEventListener('click', async () => {
+  const result = document.getElementById('sage-test-result');
+  result.innerHTML = '<i class="bi bi-arrow-repeat spinning"></i>';
+  const r = await fetch('/api/settings/test-connection',{method:'POST'}).then(r=>r.json());
+  result.innerHTML = r.success ? `<span class="text-success"><i class="bi bi-check-circle me-1"></i>${r.message}</span>`
+                               : `<span class="text-danger"><i class="bi bi-x-circle me-1"></i>${r.message}</span>`;
+});
+
+document.getElementById('btn-sync-pos-sage').addEventListener('click', async () => {
+  const btn = document.getElementById('btn-sync-pos-sage');
+  btn.disabled=true; btn.innerHTML='<i class="bi bi-arrow-repeat spinning me-1"></i>Syncing…';
+  const r = await fetch('/api/finance/sync-pos',{method:'POST'}).then(r=>r.json());
+  btn.disabled=false; btn.innerHTML='<i class="bi bi-arrow-repeat me-1"></i>Sync POs Now';
+  if (r.success) showToast(`Synced ${r.synced} POs`,'success'); else showToast(r.error,'danger');
+});
+
+document.getElementById('btn-qbo-connect').addEventListener('click', () => {
+  window.location.href = '/auth/qbo/authorize';
+});
+document.getElementById('btn-qbo-disconnect').addEventListener('click', async () => {
+  await fetch('/api/auth/disconnect',{method:'POST'});
+  showToast('Disconnected from QuickBooks Online','info');
+  refreshAuthStatus();
+});
+document.getElementById('btn-sync-pos-qbo').addEventListener('click', async () => {
+  const r = await fetch('/api/finance/sync-pos',{method:'POST'}).then(r=>r.json());
+  const el = document.getElementById('qbo-sync-result');
+  el.innerHTML = r.success ? `<span class="text-success">Synced ${r.synced} POs</span>`
+                           : `<span class="text-danger">${r.error}</span>`;
+});
+
+document.getElementById('btn-xero-connect').addEventListener('click', () => {
+  window.location.href = '/auth/xero/authorize';
+});
+document.getElementById('btn-xero-disconnect').addEventListener('click', async () => {
+  await fetch('/api/auth/disconnect',{method:'POST'});
+  showToast('Disconnected from Xero','info');
+  refreshAuthStatus();
+});
+document.getElementById('btn-sync-pos-xero').addEventListener('click', async () => {
+  const r = await fetch('/api/finance/sync-pos',{method:'POST'}).then(r=>r.json());
+  const el = document.getElementById('xero-sync-result');
+  el.innerHTML = r.success ? `<span class="text-success">Synced ${r.synced} POs</span>`
+                           : `<span class="text-danger">${r.error}</span>`;
+});
+
+document.getElementById('btn-test-email').addEventListener('click', async () => {
+  const result = document.getElementById('email-test-result');
+  result.innerHTML = '<i class="bi bi-arrow-repeat spinning"></i>';
+  const r = await fetch('/api/settings/test-email',{method:'POST'}).then(r=>r.json());
+  result.innerHTML = r.success ? `<span class="text-success"><i class="bi bi-check-circle me-1"></i>${r.message}</span>`
+                               : `<span class="text-danger"><i class="bi bi-x-circle me-1"></i>${r.message}</span>`;
+});
+
+document.getElementById('btn-scan-folder').addEventListener('click', async () => {
+  const r = await fetch('/api/finance/sync-pos',{method:'POST'}).then(r=>r.json());
+  if (r.success) showToast(`Scanned ${r.synced} PO files`,'success'); else showToast(r.error,'danger');
+});
+
+function copyField(id) {
+  navigator.clipboard.writeText(document.getElementById(id).value);
+  showToast('Copied to clipboard','info');
+}
+
+loadSettings();
+</script>
+
+<style>
+.system-card {
+  border: 2px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 16px 24px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  min-width: 140px;
+  transition: border-color 0.15s, background 0.15s;
+  user-select: none;
+}
+.system-card:hover { border-color: var(--accent); background: #f8fafc; }
+.system-card.selected { border-color: var(--accent); background: #eff6ff; color: var(--accent); }
+.system-config { padding-top: 16px; border-top: 1px solid #f1f5f9; margin-top: 8px; }
+</style>
+{% endblock %}

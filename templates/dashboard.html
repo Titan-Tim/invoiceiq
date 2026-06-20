@@ -1,0 +1,170 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+
+{% block content %}
+<!-- Stat cards -->
+<div class="row g-3 mb-4">
+  <div class="col-md-3 col-sm-6">
+    <div class="stat-card">
+      <div class="stat-icon blue"><i class="bi bi-envelope-arrow-down"></i></div>
+      <div>
+        <div class="stat-value" id="stat-today">—</div>
+        <div class="stat-label">Received Today</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3 col-sm-6">
+    <div class="stat-card">
+      <div class="stat-icon amber"><i class="bi bi-hourglass-split"></i></div>
+      <div>
+        <div class="stat-value" id="stat-pending">—</div>
+        <div class="stat-label">Pending Match</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3 col-sm-6">
+    <div class="stat-card">
+      <div class="stat-icon purple"><i class="bi bi-person-check"></i></div>
+      <div>
+        <div class="stat-value" id="stat-approval">—</div>
+        <div class="stat-label">Awaiting Approval</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3 col-sm-6">
+    <div class="stat-card">
+      <div class="stat-icon red"><i class="bi bi-exclamation-triangle"></i></div>
+      <div>
+        <div class="stat-value" id="stat-exceptions">—</div>
+        <div class="stat-label">Exceptions</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3">
+  <!-- Recent invoices -->
+  <div class="col-lg-8">
+    <div class="panel">
+      <div class="panel-header">
+        <h6><i class="bi bi-clock-history me-2 text-muted"></i>Recent Invoices</h6>
+        <a href="/invoices" class="btn btn-sm btn-link text-decoration-none">View all</a>
+      </div>
+      <div class="panel-body">
+        <table class="ap-table" id="recent-table">
+          <thead>
+            <tr>
+              <th>Supplier</th>
+              <th>Invoice #</th>
+              <th>Amount</th>
+              <th>Received</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="recent-tbody">
+            <tr><td colspan="5" class="text-center text-muted py-4">Loading…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Status breakdown -->
+  <div class="col-lg-4">
+    <div class="panel h-100">
+      <div class="panel-header">
+        <h6><i class="bi bi-pie-chart me-2 text-muted"></i>Status Breakdown</h6>
+      </div>
+      <div class="panel-body p-3">
+        <canvas id="status-chart" height="220"></canvas>
+        <div id="status-legend" class="mt-3"></div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let statusChart = null;
+
+async function loadDashboard() {
+  const data = await fetch('/api/dashboard/stats').then(r => r.json());
+
+  document.getElementById('stat-today').textContent = data.received_today;
+  document.getElementById('stat-pending').textContent = data.pending_match;
+  document.getElementById('stat-approval').textContent = data.awaiting_approval;
+  document.getElementById('stat-exceptions').textContent = data.exceptions;
+
+  // Recent table
+  const tbody = document.getElementById('recent-tbody');
+  if (data.recent.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="5"><div class="empty-state"><i class="bi bi-inbox"></i>No invoices yet</div></td></tr>`;
+  } else {
+    tbody.innerHTML = data.recent.map(inv => `
+      <tr onclick="location.href='/invoices/${inv.id}'">
+        <td><strong>${inv.supplier_name || '—'}</strong></td>
+        <td class="text-muted">${inv.invoice_number || '—'}</td>
+        <td>${inv.total_amount != null ? formatCurrency(inv.total_amount) : '—'}</td>
+        <td class="text-muted">${formatDate(inv.email_received_at)}</td>
+        <td>${statusBadge(inv.status, inv.status_label, inv.status_color)}</td>
+      </tr>`).join('');
+  }
+
+  // Status chart
+  const counts = data.status_counts;
+  const labels = {
+    received: 'Received', extracting: 'Extracting', extracted: 'Extracted',
+    matching: 'Matching', matched: 'Matched', partial_match: 'Partial Match',
+    no_match: 'No Match', awaiting_approval: 'Awaiting Approval',
+    approved: 'Approved', rejected: 'Rejected',
+    posted: 'Posted', ready_to_pay: 'Ready to Pay', exception: 'Exception'
+  };
+  const colors = {
+    received: '#94a3b8', extracting: '#60a5fa', extracted: '#93c5fd',
+    matching: '#a78bfa', matched: '#34d399', partial_match: '#fbbf24',
+    no_match: '#f87171', awaiting_approval: '#fb923c',
+    approved: '#10b981', rejected: '#ef4444',
+    posted: '#059669', ready_to_pay: '#047857', exception: '#dc2626'
+  };
+
+  const entries = Object.entries(counts).filter(([,v]) => v > 0);
+  if (entries.length === 0) return;
+
+  const ctx = document.getElementById('status-chart').getContext('2d');
+  if (statusChart) statusChart.destroy();
+  statusChart = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: entries.map(([k]) => labels[k] || k),
+      datasets: [{
+        data: entries.map(([,v]) => v),
+        backgroundColor: entries.map(([k]) => colors[k] || '#94a3b8'),
+        borderWidth: 2,
+        borderColor: '#fff'
+      }]
+    },
+    options: {
+      cutout: '65%',
+      plugins: { legend: { display: false }, tooltip: { callbacks: {
+        label: ctx => ` ${ctx.label}: ${ctx.parsed}`
+      }}}
+    }
+  });
+
+  document.getElementById('status-legend').innerHTML = entries.map(([k, v]) => `
+    <div class="d-flex align-items-center justify-content-between mb-1" style="font-size:0.8rem">
+      <div class="d-flex align-items-center gap-2">
+        <div style="width:10px;height:10px;border-radius:2px;background:${colors[k] || '#94a3b8'}"></div>
+        <span>${labels[k] || k}</span>
+      </div>
+      <strong>${v}</strong>
+    </div>`).join('');
+}
+
+function onEmailPollComplete() { loadDashboard(); }
+loadDashboard();
+setInterval(loadDashboard, 60000);
+</script>
+{% endblock %}

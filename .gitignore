@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# Local data & secrets — never commit these
+data/
+config/settings.json
+config/tokens_qbo.json
+config/tokens_xero.json
+invoices/
+.env
+
+# Build artefacts
+build/
+dist/
+*.spec
+assets/icon.ico
+assets/icon_256.png
+
+# Editor/OS
+.vscode/
+.idea/
+.claude/
+*.log
+
+# Unrelated files present in this working directory — not part of InvoiceIQ
+prisma/
+prisma.config.ts
+highlands-islands-icons/

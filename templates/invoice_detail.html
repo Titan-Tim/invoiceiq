@@ -1,0 +1,329 @@
+{% extends "base.html" %}
+{% block title %}Invoice #{{ invoice.id }}{% endblock %}
+{% block page_title %}
+  <a href="/invoices" class="text-muted text-decoration-none me-2"><i class="bi bi-chevron-left"></i></a>
+  Invoice Detail
+{% endblock %}
+
+{% block content %}
+<div id="inv-loading" class="text-center py-5 text-muted">
+  <i class="bi bi-arrow-repeat spinning fs-2"></i><br>Loading invoice…
+</div>
+
+<div id="inv-content" style="display:none">
+
+  <!-- Status bar -->
+  <div class="detail-section mb-3 d-flex align-items-center justify-content-between flex-wrap gap-3">
+    <div class="d-flex align-items-center gap-3">
+      <div id="inv-status-badge"></div>
+      <div class="text-muted small" id="inv-status-msg"></div>
+    </div>
+    <div class="d-flex gap-2" id="action-buttons"></div>
+  </div>
+
+  <div class="row g-3">
+    <div class="col-lg-8">
+
+      <!-- Invoice header -->
+      <div class="detail-section">
+        <h6>Invoice Details</h6>
+        <div class="row">
+          <div class="col-sm-6">
+            <div class="detail-row"><span class="detail-label">Supplier</span><span class="detail-value" id="d-supplier"></span></div>
+            <div class="detail-row"><span class="detail-label">{{ finance_system_name }} Ref</span><span class="detail-value" id="d-supplier-ref"></span></div>
+            <div class="detail-row"><span class="detail-label">Invoice Number</span><span class="detail-value" id="d-inv-number"></span></div>
+            <div class="detail-row"><span class="detail-label">Invoice Date</span><span class="detail-value" id="d-inv-date"></span></div>
+            <div class="detail-row"><span class="detail-label">PO Reference</span><span class="detail-value" id="d-po-ref"></span></div>
+          </div>
+          <div class="col-sm-6">
+            <div class="detail-row"><span class="detail-label">Subtotal</span><span class="detail-value" id="d-subtotal"></span></div>
+            <div class="detail-row"><span class="detail-label">VAT</span><span class="detail-value" id="d-vat"></span></div>
+            <div class="detail-row"><span class="detail-label"><strong>Total</strong></span><span class="detail-value fw-bold fs-5" id="d-total"></span></div>
+            <div class="detail-row"><span class="detail-label">AI Extraction</span><span class="detail-value" id="d-ext-conf"></span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Invoice lines -->
+      <div class="detail-section">
+        <h6>Line Items <span class="badge bg-light text-muted fw-normal ms-1" id="line-count"></span></h6>
+        <table class="ap-table">
+          <thead>
+            <tr><th>#</th><th>Description</th><th>Code</th>
+              <th class="text-end">Qty</th><th class="text-end">Unit Price</th>
+              <th class="text-end">Total</th><th class="text-end">VAT %</th>
+            </tr>
+          </thead>
+          <tbody id="inv-lines"></tbody>
+        </table>
+      </div>
+
+      <!-- PO comparison -->
+      <div class="detail-section" id="po-section" style="display:none">
+        <h6>Matched Purchase Order</h6>
+        <div class="row mb-3">
+          <div class="col-sm-6">
+            <div class="detail-row"><span class="detail-label">PO Number</span><span class="detail-value" id="po-number"></span></div>
+            <div class="detail-row"><span class="detail-label">Supplier</span><span class="detail-value" id="po-supplier"></span></div>
+            <div class="detail-row"><span class="detail-label">PO Date</span><span class="detail-value" id="po-date"></span></div>
+          </div>
+          <div class="col-sm-6">
+            <div class="detail-row"><span class="detail-label">PO Total</span><span class="detail-value fw-bold" id="po-total"></span></div>
+            <div class="detail-row"><span class="detail-label">Match Confidence</span><span class="detail-value" id="d-match-conf"></span></div>
+            <div class="detail-row"><span class="detail-label">Source</span><span class="detail-value" id="po-source"></span></div>
+          </div>
+        </div>
+        <div id="discrepancies-block" style="display:none">
+          <div class="text-warning fw-semibold small mb-2"><i class="bi bi-exclamation-triangle me-1"></i>Discrepancies</div>
+          <div id="discrepancies-list"></div>
+        </div>
+        <div class="mt-3">
+          <div class="text-muted small fw-semibold mb-2">PO Lines</div>
+          <table class="ap-table">
+            <thead><tr><th>#</th><th>Description</th><th>Code</th>
+              <th class="text-end">Qty</th><th class="text-end">Unit Price</th><th class="text-end">Total</th>
+            </tr></thead>
+            <tbody id="po-lines"></tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="col-lg-4">
+
+      <!-- Source email -->
+      <div class="detail-section">
+        <h6>Source Email</h6>
+        <div class="detail-row"><span class="detail-label">From</span><span class="detail-value small" id="d-email-from"></span></div>
+        <div class="detail-row"><span class="detail-label">Subject</span><span class="detail-value small" id="d-email-subject"></span></div>
+        <div class="detail-row"><span class="detail-label">Received</span><span class="detail-value small" id="d-email-date"></span></div>
+        <div class="detail-row"><span class="detail-label">File</span><span class="detail-value small" id="d-filename"></span></div>
+        <div class="mt-2" id="view-attachment-btn"></div>
+      </div>
+
+      <!-- Finance system info -->
+      <div class="detail-section" id="finance-section" style="display:none">
+        <h6>{{ finance_system_name }}</h6>
+        <div class="detail-row"><span class="detail-label">Transaction Ref</span><span class="detail-value" id="d-finance-ref"></span></div>
+        <div class="detail-row"><span class="detail-label">Posted</span><span class="detail-value" id="d-posted-at"></span></div>
+      </div>
+
+      <!-- Approval -->
+      <div class="detail-section" id="approval-section" style="display:none">
+        <h6>Approval</h6>
+        <div class="detail-row"><span class="detail-label">Assigned To</span><span class="detail-value" id="d-approver"></span></div>
+        <div class="detail-row" id="d-approved-row" style="display:none">
+          <span class="detail-label">Approved By</span><span class="detail-value" id="d-approved-by"></span>
+        </div>
+        <div class="detail-row" id="d-rejected-row" style="display:none">
+          <span class="detail-label">Reason</span><span class="detail-value text-danger" id="d-rejection"></span>
+        </div>
+      </div>
+
+      <!-- Audit log -->
+      <div class="detail-section">
+        <h6>Activity Log</h6>
+        <div id="audit-log"></div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- Approve modal -->
+<div class="modal fade" id="approveModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="bi bi-check-circle text-success me-2"></i>Approve Invoice</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p class="text-muted small">Approving will post this invoice to {{ finance_system_name }} and mark it ready to pay.</p>
+        <label class="form-label">Notes (optional)</label>
+        <textarea class="form-control" id="approve-notes" rows="3"></textarea>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-success" id="confirm-approve">
+          <i class="bi bi-check-lg me-1"></i>Confirm Approval
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Reject modal -->
+<div class="modal fade" id="rejectModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="bi bi-x-circle text-danger me-2"></i>Reject Invoice</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <label class="form-label">Reason <span class="text-danger">*</span></label>
+        <textarea class="form-control" id="reject-reason" rows="3"></textarea>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-danger" id="confirm-reject">
+          <i class="bi bi-x-lg me-1"></i>Confirm Rejection
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const invoiceId = {{ invoice.id }};
+let invData = null;
+
+async function loadInvoice() {
+  const data = await fetch(`/api/invoices/${invoiceId}`).then(r => r.json());
+  invData = data;
+  document.getElementById('inv-loading').style.display = 'none';
+  document.getElementById('inv-content').style.display = 'block';
+
+  document.getElementById('inv-status-badge').innerHTML = statusBadge(data.status, data.status_label, data.status_color);
+  if (data.status_message) document.getElementById('inv-status-msg').textContent = data.status_message;
+
+  document.getElementById('d-supplier').textContent = data.supplier_name || '—';
+  document.getElementById('d-supplier-ref').innerHTML = data.supplier_ref
+    ? `<code>${data.supplier_ref}</code>` : '<span class="text-muted">Not resolved</span>';
+  document.getElementById('d-inv-number').textContent = data.invoice_number || '—';
+  document.getElementById('d-inv-date').textContent = formatDate(data.invoice_date);
+  document.getElementById('d-po-ref').innerHTML = data.po_reference
+    ? `<code class="text-primary">${data.po_reference}</code>` : '—';
+  document.getElementById('d-subtotal').textContent = formatCurrency(data.subtotal);
+  document.getElementById('d-vat').textContent = formatCurrency(data.vat_amount);
+  document.getElementById('d-total').textContent = formatCurrency(data.total_amount);
+  document.getElementById('d-ext-conf').innerHTML = confidenceBar(data.extraction_confidence_pct || 0);
+
+  document.getElementById('d-email-from').textContent = data.email_from || '—';
+  document.getElementById('d-email-subject').textContent = data.email_subject || '—';
+  document.getElementById('d-email-date').textContent = formatDateTime(data.email_received_at);
+  document.getElementById('d-filename').textContent = data.attachment_filename || '—';
+  if (data.attachment_filename) {
+    document.getElementById('view-attachment-btn').innerHTML =
+      `<a href="/api/invoices/${invoiceId}/attachment" target="_blank" class="btn btn-sm btn-outline-secondary">
+        <i class="bi bi-file-earmark-pdf me-1"></i>View Attachment</a>`;
+  }
+
+  document.getElementById('line-count').textContent = (data.lines || []).length;
+  document.getElementById('inv-lines').innerHTML = (data.lines || []).map(l => `
+    <tr>
+      <td class="text-muted">${l.line_number}</td>
+      <td>${l.description || '—'}</td>
+      <td class="text-muted"><code>${l.product_code || ''}</code></td>
+      <td class="text-end">${l.quantity}</td>
+      <td class="text-end">${formatCurrency(l.unit_price)}</td>
+      <td class="text-end fw-semibold">${formatCurrency(l.line_total)}</td>
+      <td class="text-end">${l.vat_rate}%</td>
+    </tr>`).join('') || '<tr><td colspan="7" class="text-muted text-center py-3">No line items extracted</td></tr>';
+
+  if (data.matched_po) {
+    const po = data.matched_po;
+    document.getElementById('po-section').style.display = 'block';
+    document.getElementById('po-number').innerHTML = `<strong>${po.po_number}</strong>`;
+    document.getElementById('po-supplier').textContent = po.supplier_name || '—';
+    document.getElementById('po-date').textContent = formatDate(po.po_date);
+    document.getElementById('po-total').textContent = formatCurrency(po.total_amount);
+    document.getElementById('d-match-conf').innerHTML = confidenceBar(data.match_confidence_pct || 0);
+    document.getElementById('po-source').innerHTML = `<span class="badge bg-light text-muted">${po.source}</span>`;
+    if (data.discrepancies && data.discrepancies.length > 0) {
+      document.getElementById('discrepancies-block').style.display = 'block';
+      document.getElementById('discrepancies-list').innerHTML =
+        data.discrepancies.map(d => `<div class="discrepancy-item">${d}</div>`).join('');
+    }
+    document.getElementById('po-lines').innerHTML = (po.lines || []).map(l => `
+      <tr>
+        <td class="text-muted">${l.line_number}</td>
+        <td>${l.description || '—'}</td>
+        <td class="text-muted"><code>${l.product_code || ''}</code></td>
+        <td class="text-end">${l.quantity}</td>
+        <td class="text-end">${formatCurrency(l.unit_price)}</td>
+        <td class="text-end fw-semibold">${formatCurrency(l.line_total)}</td>
+      </tr>`).join('');
+  }
+
+  if (data.sage_transaction_ref) {
+    document.getElementById('finance-section').style.display = 'block';
+    document.getElementById('d-finance-ref').innerHTML = `<code>${data.sage_transaction_ref}</code>`;
+    document.getElementById('d-posted-at').textContent = formatDateTime(data.posted_to_sage_at);
+  }
+
+  if (data.requires_approval || data.assigned_approver || data.rejection_reason) {
+    document.getElementById('approval-section').style.display = 'block';
+    document.getElementById('d-approver').textContent = data.assigned_approver ? data.assigned_approver.name : 'Not assigned';
+    if (data.approved_by) {
+      document.getElementById('d-approved-row').style.display = 'flex';
+      document.getElementById('d-approved-by').textContent = data.approved_by.name;
+    }
+    if (data.rejection_reason) {
+      document.getElementById('d-rejected-row').style.display = 'flex';
+      document.getElementById('d-rejection').textContent = data.rejection_reason;
+    }
+  }
+
+  document.getElementById('audit-log').innerHTML = (data.audit_log || []).reverse().map(a => `
+    <div class="audit-item">
+      <div class="audit-dot"></div>
+      <div>
+        <div class="fw-semibold">${a.action.replace(/_/g,' ')} <span class="text-muted fw-normal">by ${a.user_name}</span></div>
+        ${a.notes ? `<div class="text-muted">${a.notes}</div>` : ''}
+        <div class="audit-time">${formatDateTime(a.timestamp)}</div>
+      </div>
+    </div>`).join('') || '<div class="text-muted small">No activity yet</div>';
+
+  renderActions(data.status);
+}
+
+function renderActions(status) {
+  const btns = document.getElementById('action-buttons');
+  let html = '';
+  if (status === 'awaiting_approval') {
+    html += `<button class="btn btn-success" onclick="document.getElementById('approve-notes').value='';new bootstrap.Modal(document.getElementById('approveModal')).show()"><i class="bi bi-check-lg me-1"></i>Approve</button>`;
+    html += `<button class="btn btn-outline-danger" onclick="document.getElementById('reject-reason').value='';new bootstrap.Modal(document.getElementById('rejectModal')).show()"><i class="bi bi-x-lg me-1"></i>Reject</button>`;
+  }
+  if (['matched','partial_match','approved'].includes(status)) {
+    html += `<button class="btn btn-primary" onclick="postToFinance()"><i class="bi bi-cloud-upload me-1"></i>Post to Finance</button>`;
+  }
+  btns.innerHTML = html;
+}
+
+document.getElementById('confirm-approve').addEventListener('click', async () => {
+  const notes = document.getElementById('approve-notes').value;
+  const r = await fetch(`/api/invoices/${invoiceId}/approve`, {
+    method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({notes})
+  }).then(r=>r.json());
+  bootstrap.Modal.getInstance(document.getElementById('approveModal')).hide();
+  if (r.success) { showToast('Invoice approved','success'); loadInvoice(); }
+  else showToast(r.error||'Approval failed','danger');
+});
+
+document.getElementById('confirm-reject').addEventListener('click', async () => {
+  const reason = document.getElementById('reject-reason').value.trim();
+  if (!reason) { showToast('Please enter a reason','warning'); return; }
+  const r = await fetch(`/api/invoices/${invoiceId}/reject`, {
+    method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({reason})
+  }).then(r=>r.json());
+  bootstrap.Modal.getInstance(document.getElementById('rejectModal')).hide();
+  if (r.success) { showToast('Invoice rejected','success'); loadInvoice(); }
+  else showToast(r.error||'Rejection failed','danger');
+});
+
+async function postToFinance() {
+  const btn = document.querySelector('[onclick="postToFinance()"]');
+  if (btn) { btn.disabled=true; btn.innerHTML='<i class="bi bi-arrow-repeat spinning me-1"></i>Posting…'; }
+  const r = await fetch(`/api/invoices/${invoiceId}/post-to-finance`,{method:'POST'}).then(r=>r.json());
+  if (r.success) { showToast(`Posted — Ref: ${r.transaction_ref}`,'success'); loadInvoice(); }
+  else showToast(r.error||'Post failed','danger');
+}
+
+loadInvoice();
+</script>
+{% endblock %}
