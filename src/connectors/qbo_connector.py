@@ -130,6 +130,16 @@ class QBOConnector(BaseConnector):
         except Exception as e:
             return False, str(e)
 
+    def get_expense_accounts(self) -> list[dict]:
+        """Accounts valid for use as AccountRef on a Bill expense line."""
+        qr = self._query(
+            "SELECT Id, Name, AccountType FROM Account "
+            "WHERE AccountType IN ('Expense', 'Other Expense', 'Cost of Goods Sold') "
+            "MAXRESULTS 200"
+        )
+        return [{'id': a['Id'], 'name': a['Name'], 'type': a.get('AccountType', '')}
+                for a in qr.get('Account', [])]
+
     def get_purchase_orders(self) -> list[dict]:
         qr = self._query(
             "SELECT * FROM PurchaseOrder WHERE POStatus = 'Open' MAXRESULTS 1000"

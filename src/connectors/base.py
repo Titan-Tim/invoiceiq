@@ -101,3 +101,12 @@ class BaseConnector(ABC):
     def disconnect(self):
         """For OAuth connectors: revoke / delete stored tokens."""
         pass
+
+    def get_expense_accounts(self) -> list[dict]:
+        """
+        Return accounts valid for use as the default expense account when
+        posting invoices, as [{'id': ..., 'name': ..., 'type': ...}].
+        Override where the finance system supports looking this up;
+        defaults to empty (caller falls back to a plain text field).
+        """
+        return []

@@ -100,9 +100,10 @@
             </select>
           </div>
           <div class="col-md-4">
-            <label class="form-label">Default Expense Account ID</label>
+            <label class="form-label">Default Expense Account</label>
+            <select class="form-select d-none" id="qbo-expense-account-select"></select>
             <input type="text" class="form-control" id="qbo-expense-account" placeholder="1">
-            <div class="form-text">QBO account ID for bill lines.</div>
+            <div class="form-text">Account used for bill lines when posting invoices.</div>
           </div>
           <div class="col-md-8">
             <label class="form-label">Redirect URI <small class="text-muted">(add this to your Intuit app)</small></label>
@@ -461,6 +462,7 @@ async function loadSettings() {
   document.getElementById('qbo-client-secret').value    = settings.qbo?.client_secret || '';
   document.getElementById('qbo-environment').value      = settings.qbo?.environment || 'production';
   document.getElementById('qbo-expense-account').value  = settings.qbo?.default_expense_account || '1';
+  loadExpenseAccounts();
   const qboSavedUri = settings.qbo?.redirect_uri || '';
   document.getElementById('qbo-redirect-uri').value     =
     qboSavedUri.startsWith(window.location.origin) ? qboSavedUri : (window.location.origin + '/auth/qbo/callback');
@@ -531,6 +533,30 @@ async function refreshAuthStatus() {
     statusEl.innerHTML = `<i class="bi bi-circle text-muted me-1"></i>Not connected`;
     connectBtn?.classList.remove('d-none');
     disconnBtn?.classList.add('d-none');
+  }
+}
+
+async function loadExpenseAccounts() {
+  const select = document.getElementById('qbo-expense-account-select');
+  const input  = document.getElementById('qbo-expense-account');
+  try {
+    const data = await fetch('/api/finance/expense-accounts').then(r => r.json());
+    const accounts = data.accounts || [];
+    if (!accounts.length) return;  // not connected yet, or system has no lookup — keep the text input
+
+    const current = input.value;
+    select.innerHTML = accounts.map(a =>
+      `<option value="${a.id}" ${String(a.id) === String(current) ? 'selected' : ''}>${a.name}</option>`
+    ).join('');
+    select.classList.remove('d-none');
+    input.classList.add('d-none');
+    select.onchange = () => { input.value = select.value; };
+    if (!accounts.some(a => String(a.id) === String(current))) {
+      input.value = accounts[0].id;
+      select.value = accounts[0].id;
+    }
+  } catch {
+    // Leave the plain text input as the fallback
   }
 }
 

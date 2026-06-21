@@ -557,6 +557,13 @@ def create_app():
         except Exception as e:
             return jsonify({'error': str(e)}), 500
 
+    @app.route('/api/finance/expense-accounts')
+    def api_expense_accounts():
+        try:
+            return jsonify({'accounts': get_connector().get_expense_accounts()})
+        except Exception as e:
+            return jsonify({'error': str(e)}), 500
+
     # ------------------------------------------------------------------ #
     # API — Auth status (for settings page)
     # ------------------------------------------------------------------ #
