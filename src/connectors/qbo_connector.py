@@ -205,11 +205,27 @@ class QBOConnector(BaseConnector):
                 },
             }]
 
+        # VAT isn't broken out per line item, so add it as its own line —
+        # otherwise the lines only sum to the subtotal and QuickBooks
+        # calculates TotalAmt from the lines itself (it's not a field you
+        # set directly; sending it explicitly is what triggers QBO's
+        # generic "unsupported property" validation error).
+        vat_amount = float(invoice_data.get('vat_amount', 0) or 0)
+        if vat_amount:
+            lines.append({
+                'Amount':     vat_amount,
+                'DetailType': 'AccountBasedExpenseLineDetail',
+                'Description': 'VAT',
+                'AccountBasedExpenseLineDetail': {
+                    'AccountRef':     {'value': account},
+                    'BillableStatus': 'NotBillable',
+                },
+            })
+
         bill = {
             'VendorRef': {'value': invoice_data['supplier_ref']},
             'TxnDate':   str(invoice_data['invoice_date']),
             'DocNumber': invoice_data.get('invoice_number', ''),
-            'TotalAmt':  float(invoice_data['total_amount']),
             'Line':      lines,
         }
         if invoice_data.get('due_date'):
