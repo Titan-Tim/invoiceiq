@@ -194,14 +194,18 @@ class QBOConnector(BaseConnector):
     def post_invoice(self, invoice_data: dict) -> str:
         account = self.cfg.get('default_expense_account', '1')
 
+        # BillableStatus is only meaningful when "Track expenses and items
+        # by customer" is enabled in QBO's account preferences — if it's
+        # off (the common case for a company that doesn't rebill expenses
+        # to customers), QBO rejects the property outright as unsupported.
+        # It isn't needed for an ordinary AP bill, so it's omitted entirely.
         if invoice_data.get('lines'):
             lines = [{
                 'Amount':     float(l.get('line_total', 0)),
                 'DetailType': 'AccountBasedExpenseLineDetail',
                 'Description': l.get('description', ''),
                 'AccountBasedExpenseLineDetail': {
-                    'AccountRef':     {'value': account},
-                    'BillableStatus': 'NotBillable',
+                    'AccountRef': {'value': account},
                 },
             } for l in invoice_data['lines']]
         else:
@@ -210,8 +214,7 @@ class QBOConnector(BaseConnector):
                 'DetailType': 'AccountBasedExpenseLineDetail',
                 'Description': f"Invoice {invoice_data.get('invoice_number', '')}",
                 'AccountBasedExpenseLineDetail': {
-                    'AccountRef':     {'value': account},
-                    'BillableStatus': 'NotBillable',
+                    'AccountRef': {'value': account},
                 },
             }]
 
@@ -227,8 +230,7 @@ class QBOConnector(BaseConnector):
                 'DetailType': 'AccountBasedExpenseLineDetail',
                 'Description': 'VAT',
                 'AccountBasedExpenseLineDetail': {
-                    'AccountRef':     {'value': account},
-                    'BillableStatus': 'NotBillable',
+                    'AccountRef': {'value': account},
                 },
             })
 
