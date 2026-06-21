@@ -753,8 +753,56 @@ def create_app():
 
     @app.route('/api/users')
     def api_users():
-        users = User.query.filter_by(is_active=True).order_by(User.name).all()
+        users = User.query.order_by(User.name).all()
         return jsonify({'users': [u.to_dict() for u in users]})
+
+    @app.route('/api/users', methods=['POST'])
+    def api_create_user():
+        data     = request.get_json() or {}
+        name     = data.get('name', '').strip()
+        email    = data.get('email', '').strip().lower()
+        password = data.get('password', '')
+        role     = data.get('role', 'approver')
+
+        if not name or not email:
+            return jsonify({'error': 'Name and email are required'}), 400
+        if role not in ('admin', 'approver', 'viewer'):
+            return jsonify({'error': 'Invalid role'}), 400
+        if User.query.filter_by(email=email).first():
+            return jsonify({'error': 'A user with that email already exists'}), 400
+        if not password or len(password) < 8:
+            return jsonify({'error': 'Password must be at least 8 characters'}), 400
+
+        user = User(name=name, email=email, role=role, is_active=True)
+        user.set_password(password)
+        db.session.add(user)
+        db.session.commit()
+        return jsonify({'success': True, 'user': user.to_dict()})
+
+    @app.route('/api/users/<int:user_id>', methods=['PUT'])
+    def api_update_user(user_id):
+        user = db.get_or_404(User, user_id)
+        data = request.get_json() or {}
+
+        if 'name' in data and data['name'].strip():
+            user.name = data['name'].strip()
+        if 'role' in data:
+            if data['role'] not in ('admin', 'approver', 'viewer'):
+                return jsonify({'error': 'Invalid role'}), 400
+            if user.id == session.get('user_id') and data['role'] != 'admin':
+                return jsonify({'error': "You can't remove your own admin role"}), 400
+            user.role = data['role']
+        if 'is_active' in data:
+            if user.id == session.get('user_id') and not data['is_active']:
+                return jsonify({'error': "You can't deactivate your own account"}), 400
+            user.is_active = bool(data['is_active'])
+        if data.get('password'):
+            if len(data['password']) < 8:
+                return jsonify({'error': 'Password must be at least 8 characters'}), 400
+            user.set_password(data['password'])
+
+        db.session.commit()
+        return jsonify({'success': True, 'user': user.to_dict()})
 
     # ------------------------------------------------------------------ #
     # Internal helpers

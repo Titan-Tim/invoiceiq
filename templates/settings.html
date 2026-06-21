@@ -14,6 +14,7 @@
       <a class="nav-link" data-tab="approval"><i class="bi bi-person-check me-2"></i>Approval</a>
       <a class="nav-link" data-tab="ai"><i class="bi bi-cpu me-2"></i>AI / Claude</a>
       <a class="nav-link" data-tab="app"><i class="bi bi-sliders me-2"></i>General</a>
+      <a class="nav-link" data-tab="users"><i class="bi bi-people me-2"></i>Users</a>
       <a class="nav-link" data-tab="account"><i class="bi bi-shield-lock me-2"></i>My Account</a>
     </div>
   </div>
@@ -359,6 +360,64 @@
       </div>
     </div>
 
+    <!-- ======================== USERS ======================== -->
+    <div class="settings-section d-none" id="tab-users">
+      <div class="d-flex align-items-center justify-content-between mb-3">
+        <div>
+          <h6 class="mb-1">Users</h6>
+          <p class="text-muted small mb-0">People who can sign in to InvoiceIQ.</p>
+        </div>
+        <button class="btn btn-primary btn-sm" id="btn-add-user">
+          <i class="bi bi-plus me-1"></i>Add User
+        </button>
+      </div>
+      <div id="users-table"></div>
+    </div>
+
+    <!-- Add/Edit user modal -->
+    <div class="modal fade" id="userModal" tabindex="-1">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="userModalTitle">Add User</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+            <input type="hidden" id="user-edit-id">
+            <div class="mb-3">
+              <label class="form-label">Name</label>
+              <input type="text" class="form-control" id="user-name">
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Email</label>
+              <input type="email" class="form-control" id="user-email">
+            </div>
+            <div class="mb-3">
+              <label class="form-label" id="user-password-label">Password</label>
+              <input type="password" class="form-control" id="user-password" placeholder="At least 8 characters">
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Role</label>
+              <select class="form-select" id="user-role">
+                <option value="approver">Approver</option>
+                <option value="admin">Admin</option>
+                <option value="viewer">Viewer</option>
+              </select>
+            </div>
+            <div class="form-check form-switch d-none" id="user-active-group">
+              <input class="form-check-input" type="checkbox" id="user-active" checked>
+              <label class="form-check-label" for="user-active">Active</label>
+            </div>
+            <div id="user-modal-error" class="text-danger small d-none"></div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+            <button type="button" class="btn btn-primary" id="btn-save-user">Save</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- ======================== MY ACCOUNT ======================== -->
     <div class="settings-section d-none" id="tab-account">
       <h6>Change Password</h6>
@@ -409,7 +468,8 @@ document.querySelectorAll('.settings-nav .nav-link').forEach(link => {
     document.querySelectorAll('.settings-section').forEach(s => s.classList.add('d-none'));
     document.getElementById(`tab-${link.dataset.tab}`).classList.remove('d-none');
     document.getElementById('btn-save').closest('.d-flex').style.display =
-      link.dataset.tab === 'account' ? 'none' : '';
+      ['account', 'users'].includes(link.dataset.tab) ? 'none' : '';
+    if (link.dataset.tab === 'users') renderUsersTable();
   });
 });
 
@@ -441,8 +501,9 @@ async function loadSettings() {
   settings = await fetch('/api/settings').then(r => r.json());
 
   const usersResp = await fetch('/api/users').then(r => r.json()).catch(() => ({users:[]}));
+  allUsers = usersResp.users || [];
   usersByEmail = {};
-  (usersResp.users || []).forEach(u => { if (u.email) usersByEmail[u.email.toLowerCase()] = u; });
+  allUsers.forEach(u => { if (u.email) usersByEmail[u.email.toLowerCase()] = u; });
 
   // System
   const sys = settings.finance_system || 'sage';
@@ -560,8 +621,111 @@ async function loadExpenseAccounts() {
   }
 }
 
-// ---- Approvers ----
+// ---- Users management ----
+let allUsers = [];
 let usersByEmail = {};
+
+function renderUsersTable() {
+  const container = document.getElementById('users-table');
+  if (!allUsers.length) { container.innerHTML = '<p class="text-muted small">No users yet.</p>'; return; }
+
+  const roleBadge = { admin: 'primary', approver: 'success', viewer: 'secondary' };
+  container.innerHTML = `
+    <table class="table align-middle">
+      <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Status</th><th></th></tr></thead>
+      <tbody>
+        ${allUsers.map(u => `
+          <tr>
+            <td>${u.name}</td>
+            <td class="text-muted">${u.email || '—'}</td>
+            <td><span class="badge bg-${roleBadge[u.role] || 'secondary'}">${u.role}</span></td>
+            <td>${u.is_active
+              ? '<span class="text-success small"><i class="bi bi-check-circle me-1"></i>Active</span>'
+              : '<span class="text-muted small"><i class="bi bi-slash-circle me-1"></i>Inactive</span>'}</td>
+            <td class="text-end">
+              <button class="btn btn-sm btn-outline-secondary" onclick="openUserModal(${u.id})">
+                <i class="bi bi-pencil"></i>
+              </button>
+              <button class="btn btn-sm btn-outline-${u.is_active ? 'danger' : 'success'}"
+                      onclick="toggleUserActive(${u.id}, ${!u.is_active})">
+                <i class="bi bi-${u.is_active ? 'slash-circle' : 'check-circle'}"></i>
+              </button>
+            </td>
+          </tr>`).join('')}
+      </tbody>
+    </table>`;
+}
+
+let userModal;
+function openUserModal(userId) {
+  document.getElementById('user-modal-error').classList.add('d-none');
+  const user = userId ? allUsers.find(u => u.id === userId) : null;
+
+  document.getElementById('userModalTitle').textContent = user ? 'Edit User' : 'Add User';
+  document.getElementById('user-edit-id').value = user ? user.id : '';
+  document.getElementById('user-name').value = user ? user.name : '';
+  document.getElementById('user-email').value = user ? user.email : '';
+  document.getElementById('user-email').disabled = !!user;
+  document.getElementById('user-password').value = '';
+  document.getElementById('user-password').placeholder = user ? 'Leave blank to keep current password' : 'At least 8 characters';
+  document.getElementById('user-password-label').textContent = user ? 'New Password (optional)' : 'Password';
+  document.getElementById('user-role').value = user ? user.role : 'approver';
+  document.getElementById('user-active-group').classList.toggle('d-none', !user);
+  document.getElementById('user-active').checked = user ? user.is_active : true;
+
+  if (!userModal) userModal = new bootstrap.Modal(document.getElementById('userModal'));
+  userModal.show();
+}
+
+document.getElementById('btn-add-user').addEventListener('click', () => openUserModal(null));
+
+document.getElementById('btn-save-user').addEventListener('click', async () => {
+  const errEl = document.getElementById('user-modal-error');
+  const id = document.getElementById('user-edit-id').value;
+  const name = document.getElementById('user-name').value.trim();
+  const email = document.getElementById('user-email').value.trim();
+  const password = document.getElementById('user-password').value;
+  const role = document.getElementById('user-role').value;
+
+  const showErr = (msg) => { errEl.textContent = msg; errEl.classList.remove('d-none'); };
+  if (!name) { showErr('Name is required.'); return; }
+  if (!id && !email) { showErr('Email is required.'); return; }
+  if (password && password.length < 8) { showErr('Password must be at least 8 characters.'); return; }
+  if (!id && !password) { showErr('Password is required for a new user.'); return; }
+
+  let resp;
+  if (id) {
+    const body = { name, role, is_active: document.getElementById('user-active').checked };
+    if (password) body.password = password;
+    resp = await fetch(`/api/users/${id}`, {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+    }).then(r => r.json());
+  } else {
+    resp = await fetch('/api/users', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, email, password, role }),
+    }).then(r => r.json());
+  }
+
+  if (resp.error) { showErr(resp.error); return; }
+  userModal.hide();
+  const usersResp = await fetch('/api/users').then(r => r.json());
+  allUsers = usersResp.users || [];
+  renderUsersTable();
+});
+
+async function toggleUserActive(id, makeActive) {
+  const resp = await fetch(`/api/users/${id}`, {
+    method: 'PUT', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ is_active: makeActive }),
+  }).then(r => r.json());
+  if (resp.error) { showToast(resp.error, 'danger'); return; }
+  const usersResp = await fetch('/api/users').then(r => r.json());
+  allUsers = usersResp.users || [];
+  renderUsersTable();
+}
+
+// ---- Approvers ----
 
 function renderApprovers(approvers) {
   const list = document.getElementById('approvers-list');

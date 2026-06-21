@@ -99,6 +99,13 @@ body { background: var(--body-bg); font-family: 'Segoe UI', system-ui, sans-seri
 }
 .sidebar-footer a { color: #64748b; }
 .sidebar-footer a:hover { color: #94a3b8; }
+.sidebar-logout-link {
+  display: flex; align-items: center;
+  font-size: 0.78rem;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.sidebar-logout-link:hover { color: #f87171 !important; }
 
 /* ---- Main content ---- */
 
