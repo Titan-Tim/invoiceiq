@@ -243,13 +243,18 @@ class QBOConnector(BaseConnector):
         if invoice_data.get('due_date'):
             bill['DueDate'] = str(invoice_data['due_date'])
 
-        url     = f"{self._base}/{self._realm_id()}/bill"
-        payload = {'Bill': bill}
-        resp    = requests.post(url, headers=self._headers(), json=payload)
+        # Confirmed empirically (12+ direct API tests): the REQUEST body
+        # must be the bare entity object, NOT wrapped in a {"Bill": {...}}
+        # envelope — wrapping it is what caused every "invalid or
+        # unsupported property" (code 2010) failure throughout testing,
+        # identical payloads sent unwrapped succeeded every time. The
+        # RESPONSE, however, does come back wrapped in "Bill" as usual.
+        url  = f"{self._base}/{self._realm_id()}/bill"
+        resp = requests.post(url, headers=self._headers(), json=bill)
         if not resp.ok:
             raise RuntimeError(
                 f"{resp.status_code} {resp.reason}: {resp.text[:500]} "
-                f"| Sent: {json.dumps(payload)}"
+                f"| Sent: {json.dumps(bill)}"
             )
         return str(resp.json().get('Bill', {}).get('Id', ''))
 
