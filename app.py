@@ -66,9 +66,11 @@ def create_app():
     @app.context_processor
     def inject_globals():
         settings = load_settings()
+        currency_symbols = {'GBP': '£', 'USD': '$', 'EUR': '€'}
         return {
             'finance_system_name': get_system_name(settings),
             'finance_system_key':  settings.get('finance_system', 'sage'),
+            'currency_symbol':     currency_symbols.get(settings.get('app', {}).get('currency', 'GBP'), '£'),
         }
 
     # ------------------------------------------------------------------ #
@@ -454,6 +456,64 @@ def create_app():
             data['approved_by'] = inv.approved_by.to_dict()
 
         return jsonify(data)
+
+    @app.route('/api/invoices/<int:invoice_id>', methods=['PUT'])
+    def api_update_invoice(invoice_id):
+        """Let a reviewer correct AI-extracted fields/line items before posting."""
+        inv = db.get_or_404(Invoice, invoice_id)
+        if inv.status in ('ready_to_pay', 'rejected'):
+            return jsonify({'error': f"Can't edit an invoice that's already {inv.status.replace('_', ' ')}"}), 400
+
+        data = request.get_json() or {}
+
+        def _num(value):
+            if value in (None, ''):
+                return None
+            try:
+                return round(float(str(value).replace('£', '').replace('$', '').replace(',', '').strip()), 2)
+            except ValueError:
+                return None
+
+        if 'supplier_name' in data: inv.supplier_name = data['supplier_name'].strip() or None
+        if 'supplier_ref'  in data: inv.supplier_ref  = data['supplier_ref'].strip() or None
+        if 'invoice_number' in data: inv.invoice_number = data['invoice_number'].strip() or None
+        if 'po_reference'  in data: inv.po_reference  = data['po_reference'].strip() or None
+        if 'invoice_date' in data and data['invoice_date']:
+            try:
+                inv.invoice_date = datetime.strptime(data['invoice_date'][:10], '%Y-%m-%d').date()
+            except ValueError:
+                return jsonify({'error': 'Invalid invoice date'}), 400
+        if 'subtotal'     in data: inv.subtotal     = _num(data['subtotal'])
+        if 'vat_amount'   in data: inv.vat_amount   = _num(data['vat_amount'])
+        if 'total_amount' in data: inv.total_amount = _num(data['total_amount'])
+
+        if 'lines' in data:
+            kept_ids = set()
+            for line_data in data['lines']:
+                line_id = line_data.get('id')
+                line = InvoiceLine.query.get(line_id) if line_id else None
+                if not line or line.invoice_id != inv.id:
+                    line = InvoiceLine(invoice_id=inv.id)
+                    db.session.add(line)
+                line.description  = (line_data.get('description') or '').strip() or None
+                line.product_code = (line_data.get('product_code') or '').strip() or None
+                line.quantity      = _num(line_data.get('quantity')) or 0
+                line.unit_price    = _num(line_data.get('unit_price')) or 0
+                line.line_total    = _num(line_data.get('line_total')) or 0
+                line.vat_rate       = _num(line_data.get('vat_rate')) or 0
+                db.session.flush()
+                kept_ids.add(line.id)
+            InvoiceLine.query.filter(
+                InvoiceLine.invoice_id == inv.id, ~InvoiceLine.id.in_(kept_ids or [0])
+            ).delete(synchronize_session=False)
+
+        db.session.add(AuditLog(
+            invoice_id=inv.id, action='details_corrected',
+            user_name=session.get('user_name', 'system'),
+            notes='Extracted data manually corrected before approval'
+        ))
+        db.session.commit()
+        return jsonify({'success': True})
 
     # ------------------------------------------------------------------ #
     # API — Approval actions

@@ -250,6 +250,10 @@ body { background: var(--body-bg); font-family: 'Segoe UI', system-ui, sans-seri
   padding: 20px 24px;
   margin-bottom: 16px;
 }
+.doc-viewer-section {
+  position: sticky;
+  top: 16px;
+}
 .detail-section h6 {
   font-weight: 700;
   font-size: 0.8rem;

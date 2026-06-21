@@ -22,26 +22,79 @@
   </div>
 
   <div class="row g-3">
-    <div class="col-lg-8">
+    <div class="col-lg-5">
+
+      <!-- Original document -->
+      <div class="detail-section doc-viewer-section">
+        <div class="d-flex align-items-center justify-content-between mb-2">
+          <h6 class="mb-0">Original Document</h6>
+          <a id="doc-open-new-tab" href="#" target="_blank" class="btn btn-sm btn-outline-secondary d-none">
+            <i class="bi bi-arrow-up-right-square me-1"></i>Open
+          </a>
+        </div>
+        <div id="doc-viewer-wrap"></div>
+      </div>
+
+    </div>
+
+    <div class="col-lg-7">
 
       <!-- Invoice header -->
       <div class="detail-section">
-        <h6>Invoice Details</h6>
-        <div class="row">
+        <div class="d-flex align-items-center justify-content-between mb-2">
+          <h6 class="mb-0">Invoice Details</h6>
+          <button class="btn btn-sm btn-primary d-none" id="btn-save-edits">
+            <i class="bi bi-check2 me-1"></i>Save Changes
+          </button>
+        </div>
+        <p class="text-muted small mb-3 d-none" id="edit-hint">
+          <i class="bi bi-info-circle me-1"></i>Compare against the original document on the left and correct anything the AI got wrong.
+        </p>
+        <div class="row g-3">
           <div class="col-sm-6">
-            <div class="detail-row"><span class="detail-label">Supplier</span><span class="detail-value" id="d-supplier"></span></div>
-            <div class="detail-row"><span class="detail-label">{{ finance_system_name }} Ref</span><span class="detail-value" id="d-supplier-ref"></span></div>
-            <div class="detail-row"><span class="detail-label">Invoice Number</span><span class="detail-value" id="d-inv-number"></span></div>
-            <div class="detail-row"><span class="detail-label">Invoice Date</span><span class="detail-value" id="d-inv-date"></span></div>
-            <div class="detail-row"><span class="detail-label">PO Reference</span><span class="detail-value" id="d-po-ref"></span></div>
+            <label class="form-label small text-muted mb-1">Supplier</label>
+            <input class="form-control form-control-sm edit-field" id="d-supplier">
           </div>
           <div class="col-sm-6">
-            <div class="detail-row"><span class="detail-label">Subtotal</span><span class="detail-value" id="d-subtotal"></span></div>
-            <div class="detail-row"><span class="detail-label">VAT</span><span class="detail-value" id="d-vat"></span></div>
-            <div class="detail-row"><span class="detail-label"><strong>Total</strong></span><span class="detail-value fw-bold fs-5" id="d-total"></span></div>
-            <div class="detail-row"><span class="detail-label">AI Extraction</span><span class="detail-value" id="d-ext-conf"></span></div>
+            <label class="form-label small text-muted mb-1">{{ finance_system_name }} Ref</label>
+            <input class="form-control form-control-sm edit-field" id="d-supplier-ref">
+          </div>
+          <div class="col-sm-6">
+            <label class="form-label small text-muted mb-1">Invoice Number</label>
+            <input class="form-control form-control-sm edit-field" id="d-inv-number">
+          </div>
+          <div class="col-sm-6">
+            <label class="form-label small text-muted mb-1">Invoice Date</label>
+            <input type="date" class="form-control form-control-sm edit-field" id="d-inv-date">
+          </div>
+          <div class="col-sm-6">
+            <label class="form-label small text-muted mb-1">PO Reference</label>
+            <input class="form-control form-control-sm edit-field" id="d-po-ref">
+          </div>
+          <div class="col-sm-6"></div>
+          <div class="col-sm-4">
+            <label class="form-label small text-muted mb-1">Subtotal</label>
+            <div class="input-group input-group-sm">
+              <span class="input-group-text">{{ currency_symbol }}</span>
+              <input type="number" step="0.01" class="form-control edit-field" id="d-subtotal">
+            </div>
+          </div>
+          <div class="col-sm-4">
+            <label class="form-label small text-muted mb-1">VAT</label>
+            <div class="input-group input-group-sm">
+              <span class="input-group-text">{{ currency_symbol }}</span>
+              <input type="number" step="0.01" class="form-control edit-field" id="d-vat">
+            </div>
+          </div>
+          <div class="col-sm-4">
+            <label class="form-label small text-muted mb-1 fw-bold">Total</label>
+            <div class="input-group input-group-sm">
+              <span class="input-group-text">{{ currency_symbol }}</span>
+              <input type="number" step="0.01" class="form-control edit-field fw-bold" id="d-total">
+            </div>
           </div>
         </div>
+        <div class="detail-row mt-2"><span class="detail-label">AI Extraction</span><span class="detail-value" id="d-ext-conf"></span></div>
       </div>
 
       <!-- Invoice lines -->
@@ -49,13 +102,16 @@
         <h6>Line Items <span class="badge bg-light text-muted fw-normal ms-1" id="line-count"></span></h6>
         <table class="ap-table">
           <thead>
-            <tr><th>#</th><th>Description</th><th>Code</th>
-              <th class="text-end">Qty</th><th class="text-end">Unit Price</th>
-              <th class="text-end">Total</th><th class="text-end">VAT %</th>
+            <tr><th>Description</th><th style="width:90px">Code</th>
+              <th class="text-end" style="width:70px">Qty</th><th class="text-end" style="width:100px">Unit Price</th>
+              <th class="text-end" style="width:100px">Total</th><th class="text-end" style="width:70px">VAT %</th><th style="width:36px"></th>
             </tr>
           </thead>
           <tbody id="inv-lines"></tbody>
         </table>
+        <button class="btn btn-sm btn-outline-secondary d-none" id="btn-add-line">
+          <i class="bi bi-plus me-1"></i>Add Line
+        </button>
       </div>
 
       <!-- PO comparison -->
@@ -88,10 +144,6 @@
         </div>
       </div>
 
-    </div>
-
-    <div class="col-lg-4">
-
       <!-- Source email -->
       <div class="detail-section">
         <h6>Source Email</h6>
@@ -99,7 +151,6 @@
         <div class="detail-row"><span class="detail-label">Subject</span><span class="detail-value small" id="d-email-subject"></span></div>
         <div class="detail-row"><span class="detail-label">Received</span><span class="detail-value small" id="d-email-date"></span></div>
         <div class="detail-row"><span class="detail-label">File</span><span class="detail-value small" id="d-filename"></span></div>
-        <div class="mt-2" id="view-attachment-btn"></div>
       </div>
 
       <!-- Finance system info -->
@@ -188,6 +239,78 @@
 <script>
 const invoiceId = {{ invoice.id }};
 let invData = null;
+let invoiceLines = [];
+
+function renderDocViewer(filename) {
+  const wrap = document.getElementById('doc-viewer-wrap');
+  const openLink = document.getElementById('doc-open-new-tab');
+  if (!filename) {
+    wrap.innerHTML = '<div class="text-muted small text-center py-5">No document attached</div>';
+    openLink.classList.add('d-none');
+    return;
+  }
+  const url = `/api/invoices/${invoiceId}/attachment`;
+  const isImage = /\.(png|jpe?g|gif|webp|tiff?)$/i.test(filename);
+  wrap.innerHTML = isImage
+    ? `<img src="${url}" style="width:100%; display:block; border-radius:8px;">`
+    : `<iframe src="${url}" style="width:100%; height:75vh; border:1px solid #e2e8f0; border-radius:8px;"></iframe>`;
+  openLink.href = url;
+  openLink.classList.remove('d-none');
+}
+
+function renderLines() {
+  const editable = !invData || !['ready_to_pay', 'rejected'].includes(invData.status);
+  document.getElementById('line-count').textContent = invoiceLines.length;
+  document.getElementById('inv-lines').innerHTML = invoiceLines.map((l, i) => `
+    <tr>
+      <td><input class="form-control form-control-sm line-field" data-i="${i}" data-f="description" value="${l.description || ''}" ${editable ? '' : 'disabled'}></td>
+      <td><input class="form-control form-control-sm line-field" data-i="${i}" data-f="product_code" value="${l.product_code || ''}" ${editable ? '' : 'disabled'}></td>
+      <td><input type="number" step="0.01" class="form-control form-control-sm text-end line-field" data-i="${i}" data-f="quantity" value="${l.quantity ?? 0}" ${editable ? '' : 'disabled'}></td>
+      <td><input type="number" step="0.01" class="form-control form-control-sm text-end line-field" data-i="${i}" data-f="unit_price" value="${l.unit_price ?? 0}" ${editable ? '' : 'disabled'}></td>
+      <td><input type="number" step="0.01" class="form-control form-control-sm text-end line-field" data-i="${i}" data-f="line_total" value="${l.line_total ?? 0}" ${editable ? '' : 'disabled'}></td>
+      <td><input type="number" step="0.01" class="form-control form-control-sm text-end line-field" data-i="${i}" data-f="vat_rate" value="${l.vat_rate ?? 0}" ${editable ? '' : 'disabled'}></td>
+      <td>${editable ? `<button class="btn btn-sm btn-outline-danger" onclick="removeLine(${i})"><i class="bi bi-trash"></i></button>` : ''}</td>
+    </tr>`).join('') || '<tr><td colspan="7" class="text-muted text-center py-3">No line items extracted</td></tr>';
+
+  document.querySelectorAll('.line-field').forEach(el => {
+    el.addEventListener('change', () => {
+      const i = +el.dataset.i, f = el.dataset.f;
+      invoiceLines[i][f] = el.type === 'number' ? parseFloat(el.value) || 0 : el.value;
+    });
+  });
+}
+
+function removeLine(i) {
+  invoiceLines.splice(i, 1);
+  renderLines();
+}
+
+document.getElementById('btn-add-line').addEventListener('click', () => {
+  invoiceLines.push({ description: '', product_code: '', quantity: 1, unit_price: 0, line_total: 0, vat_rate: 0 });
+  renderLines();
+});
+
+document.getElementById('btn-save-edits').addEventListener('click', async () => {
+  const btn = document.getElementById('btn-save-edits');
+  btn.disabled = true;
+  const payload = {
+    supplier_name:  document.getElementById('d-supplier').value,
+    supplier_ref:   document.getElementById('d-supplier-ref').value,
+    invoice_number: document.getElementById('d-inv-number').value,
+    invoice_date:   document.getElementById('d-inv-date').value,
+    po_reference:   document.getElementById('d-po-ref').value,
+    subtotal:       document.getElementById('d-subtotal').value,
+    vat_amount:     document.getElementById('d-vat').value,
+    total_amount:   document.getElementById('d-total').value,
+    lines:          invoiceLines,
+  };
+  const r = await fetch(`/api/invoices/${invoiceId}`, {
+    method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
+  }).then(r => r.json());
+  btn.disabled = false;
+  if (r.success) { showToast('Changes saved', 'success'); loadInvoice(); }
+  else showToast(r.error || 'Could not save changes', 'danger');
+});
 
 async function loadInvoice() {
   const data = await fetch(`/api/invoices/${invoiceId}`).then(r => r.json());
@@ -198,39 +321,30 @@ async function loadInvoice() {
   document.getElementById('inv-status-badge').innerHTML = statusBadge(data.status, data.status_label, data.status_color);
   if (data.status_message) document.getElementById('inv-status-msg').textContent = data.status_message;
 
-  document.getElementById('d-supplier').textContent = data.supplier_name || '—';
-  document.getElementById('d-supplier-ref').innerHTML = data.supplier_ref
-    ? `<code>${data.supplier_ref}</code>` : '<span class="text-muted">Not resolved</span>';
-  document.getElementById('d-inv-number').textContent = data.invoice_number || '—';
-  document.getElementById('d-inv-date').textContent = formatDate(data.invoice_date);
-  document.getElementById('d-po-ref').innerHTML = data.po_reference
-    ? `<code class="text-primary">${data.po_reference}</code>` : '—';
-  document.getElementById('d-subtotal').textContent = formatCurrency(data.subtotal);
-  document.getElementById('d-vat').textContent = formatCurrency(data.vat_amount);
-  document.getElementById('d-total').textContent = formatCurrency(data.total_amount);
+  const editable = !['ready_to_pay', 'rejected'].includes(data.status);
+  document.getElementById('btn-save-edits').classList.toggle('d-none', !editable);
+  document.getElementById('edit-hint').classList.toggle('d-none', !editable);
+  document.getElementById('btn-add-line').classList.toggle('d-none', !editable);
+  document.querySelectorAll('.edit-field').forEach(el => el.disabled = !editable);
+
+  document.getElementById('d-supplier').value = data.supplier_name || '';
+  document.getElementById('d-supplier-ref').value = data.supplier_ref || '';
+  document.getElementById('d-inv-number').value = data.invoice_number || '';
+  document.getElementById('d-inv-date').value = (data.invoice_date || '').slice(0, 10);
+  document.getElementById('d-po-ref').value = data.po_reference || '';
+  document.getElementById('d-subtotal').value = data.subtotal ?? '';
+  document.getElementById('d-vat').value = data.vat_amount ?? '';
+  document.getElementById('d-total').value = data.total_amount ?? '';
   document.getElementById('d-ext-conf').innerHTML = confidenceBar(data.extraction_confidence_pct || 0);
 
   document.getElementById('d-email-from').textContent = data.email_from || '—';
   document.getElementById('d-email-subject').textContent = data.email_subject || '—';
   document.getElementById('d-email-date').textContent = formatDateTime(data.email_received_at);
   document.getElementById('d-filename').textContent = data.attachment_filename || '—';
-  if (data.attachment_filename) {
-    document.getElementById('view-attachment-btn').innerHTML =
-      `<a href="/api/invoices/${invoiceId}/attachment" target="_blank" class="btn btn-sm btn-outline-secondary">
-        <i class="bi bi-file-earmark-pdf me-1"></i>View Attachment</a>`;
-  }
+  renderDocViewer(data.attachment_filename);
 
-  document.getElementById('line-count').textContent = (data.lines || []).length;
-  document.getElementById('inv-lines').innerHTML = (data.lines || []).map(l => `
-    <tr>
-      <td class="text-muted">${l.line_number}</td>
-      <td>${l.description || '—'}</td>
-      <td class="text-muted"><code>${l.product_code || ''}</code></td>
-      <td class="text-end">${l.quantity}</td>
-      <td class="text-end">${formatCurrency(l.unit_price)}</td>
-      <td class="text-end fw-semibold">${formatCurrency(l.line_total)}</td>
-      <td class="text-end">${l.vat_rate}%</td>
-    </tr>`).join('') || '<tr><td colspan="7" class="text-muted text-center py-3">No line items extracted</td></tr>';
+  invoiceLines = JSON.parse(JSON.stringify(data.lines || []));
+  renderLines();
 
   if (data.matched_po) {
     const po = data.matched_po;
