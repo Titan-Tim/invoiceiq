@@ -587,25 +587,37 @@ async function validateStep1AndContinue() {
   btn.disabled = true;
   btn.innerHTML = '<i class="bi bi-arrow-repeat spinning me-1"></i>Creating account…';
 
-  await partialSave({ app: {
-    company_name: document.getElementById('w-company').value,
-    currency:     document.getElementById('w-currency').value,
-  }});
+  try {
+    await partialSave({ app: {
+      company_name: document.getElementById('w-company').value,
+      currency:     document.getElementById('w-currency').value,
+    }});
 
-  const result = await fetch('/api/wizard/create-admin', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ admin_name: name, admin_email: email, admin_password: pass }),
-  }).then(r => r.json());
+    const resp = await fetch('/api/wizard/create-admin', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ admin_name: name, admin_email: email, admin_password: pass }),
+    });
+    let result;
+    try {
+      result = await resp.json();
+    } catch {
+      throw new Error(`Server returned an unexpected response (status ${resp.status}). Please try again.`);
+    }
 
-  btn.disabled = false;
-  btn.innerHTML = originalLabel;
+    btn.disabled = false;
+    btn.innerHTML = originalLabel;
 
-  if (result.error) {
-    showError(result.error);
-    return;
+    if (!resp.ok || result.error) {
+      showError(result.error || `Request failed (status ${resp.status}).`);
+      return;
+    }
+    goStep(2);
+  } catch (err) {
+    btn.disabled = false;
+    btn.innerHTML = originalLabel;
+    showError(err.message || 'Something went wrong — please try again.');
   }
-  goStep(2);
 }
 
 function goStep(n) {
@@ -699,11 +711,24 @@ async function finishSetup(skipAI = false) {
     };
   }
 
-  const result = await fetch('/api/wizard/complete', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-  }).then(r => r.json());
+  let result;
+  try {
+    const resp = await fetch('/api/wizard/complete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    try {
+      result = await resp.json();
+    } catch {
+      result = { error: `Server returned an unexpected response (status ${resp.status}). Please try again.` };
+    }
+    if (!resp.ok && !result.error) {
+      result.error = `Request failed (status ${resp.status}).`;
+    }
+  } catch (err) {
+    result = { error: err.message || 'Network error — please try again.' };
+  }
 
   if (result.error) {
     if (btn) { btn.disabled = false; btn.innerHTML = '<i class="bi bi-check2 me-1"></i> Finish Setup'; }
