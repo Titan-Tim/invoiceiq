@@ -241,9 +241,14 @@ class QBOConnector(BaseConnector):
         if invoice_data.get('due_date'):
             bill['DueDate'] = str(invoice_data['due_date'])
 
-        url  = f"{self._base}/{self._realm_id()}/bill"
-        resp = requests.post(url, headers=self._headers(), json={'Bill': bill})
-        self._raise_detailed(resp)
+        url     = f"{self._base}/{self._realm_id()}/bill"
+        payload = {'Bill': bill}
+        resp    = requests.post(url, headers=self._headers(), json=payload)
+        if not resp.ok:
+            raise RuntimeError(
+                f"{resp.status_code} {resp.reason}: {resp.text[:500]} "
+                f"| Sent: {json.dumps(payload)}"
+            )
         return str(resp.json().get('Bill', {}).get('Id', ''))
 
     # ------------------------------------------------------------------ #
