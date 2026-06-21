@@ -763,11 +763,11 @@ def create_app():
         if not inv.supplier_ref and inv.supplier_name:
             try:
                 found = connector.find_vendor(inv.supplier_name)
-                if found:
-                    inv.supplier_ref = found
-                    db.session.commit()
-            except Exception:
-                pass
+            except Exception as e:
+                raise ValueError(f"{get_system_name()} vendor lookup failed: {e}")
+            if found:
+                inv.supplier_ref = found
+                db.session.commit()
 
         if not inv.supplier_ref:
             raise ValueError(
