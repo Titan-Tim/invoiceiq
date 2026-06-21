@@ -296,17 +296,13 @@
           </div>
         </div>
       </div>
-      <h6>Approvers</h6>
-      <div id="approvers-list" class="mb-3"></div>
-      <button class="btn btn-outline-primary btn-sm" id="btn-add-approver">
-        <i class="bi bi-plus me-1"></i>Add Approver
-      </button>
-
       <h6 class="mt-4">Approval Rules</h6>
       <p class="text-muted small mb-3">
         Evaluated top to bottom — the <strong>first matching rule</strong> decides who approves an invoice.
         If nothing matches a fully-matched invoice, the default threshold above applies. Invoices with
         no PO match or only a partial match are always routed to a human unless a rule says otherwise.
+        Approvers are managed under <a href="#" onclick="document.querySelector('[data-tab=users]').click(); return false;">Settings → Users</a> —
+        anyone active there can be picked below.
       </p>
       <div id="rules-list" class="mb-3"></div>
       <button class="btn btn-outline-primary btn-sm" id="btn-add-rule">
@@ -556,7 +552,6 @@ async function loadSettings() {
   // Approval
   document.getElementById('approval-enabled').checked   = settings.approval?.enabled !== false;
   document.getElementById('approval-threshold').value   = settings.approval?.threshold_amount || 1000;
-  renderApprovers(settings.approval?.approvers || []);
   renderRules(settings.approval?.rules || []);
 
   // Claude
@@ -725,34 +720,6 @@ async function toggleUserActive(id, makeActive) {
   renderUsersTable();
 }
 
-// ---- Approvers ----
-
-function renderApprovers(approvers) {
-  const list = document.getElementById('approvers-list');
-  if (!approvers.length) { list.innerHTML = '<p class="text-muted small">No approvers configured.</p>'; return; }
-  list.innerHTML = approvers.map((a, i) => {
-    const hasPassword = !!usersByEmail[(a.email||'').toLowerCase()]?.has_password;
-    const pwPlaceholder = hasPassword ? 'Password set — leave blank to keep' : 'Set an initial password';
-    return `
-    <div class="d-flex gap-2 mb-2 align-items-center">
-      <input type="text" class="form-control" value="${a.name||''}" placeholder="Full name"
-             onchange="settings.approval.approvers[${i}].name=this.value">
-      <input type="email" class="form-control" value="${a.email||''}" placeholder="email@company.com"
-             onchange="settings.approval.approvers[${i}].email=this.value">
-      <input type="password" class="form-control" placeholder="${pwPlaceholder}"
-             onchange="settings.approval.approvers[${i}].password=this.value">
-      <button class="btn btn-outline-danger btn-sm flex-shrink-0"
-              onclick="settings.approval.approvers.splice(${i},1);renderApprovers(settings.approval.approvers)">
-        <i class="bi bi-trash"></i>
-      </button>
-    </div>`;
-  }).join('');
-}
-document.getElementById('btn-add-approver').addEventListener('click', () => {
-  if (!settings.approval) settings.approval = {approvers:[]};
-  settings.approval.approvers.push({name:'',email:'',password:''});
-  renderApprovers(settings.approval.approvers);
-});
 
 // ---- Approval Rules ----
 const RULE_CONDITIONS = {
@@ -764,7 +731,7 @@ const RULE_CONDITIONS = {
 
 function renderRules(rules) {
   const list = document.getElementById('rules-list');
-  const approverOptions = (settings.approval?.approvers || []).filter(a => a.email);
+  const approverOptions = (allUsers || []).filter(u => u.is_active && u.email);
 
   if (!rules.length) { list.innerHTML = '<p class="text-muted small">No rules configured — the default threshold above applies to every matched invoice.</p>'; return; }
 
@@ -894,7 +861,6 @@ document.getElementById('btn-save').addEventListener('click', async () => {
     approval: {
       enabled: document.getElementById('approval-enabled').checked,
       threshold_amount: +document.getElementById('approval-threshold').value,
-      approvers: settings.approval?.approvers || [],
       rules: settings.approval?.rules || [],
     },
     claude: {

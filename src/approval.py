@@ -37,14 +37,18 @@ class ApprovalWorkflow:
         rule = self._matching_rule(invoice)
         email = rule.get('approver_email') if rule else None
 
-        if not email:
-            approvers = self.settings.get('approval', {}).get('approvers', [])
-            email = approvers[0].get('email') if approvers else None
-
         if email:
             user = User.query.filter_by(email=email, is_active=True).first()
-            if user:
-                invoice.assigned_approver_id = user.id
+        else:
+            # No rule matched (or it didn't specify an approver) — fall back
+            # to the first active admin/approver, so invoices never end up
+            # flagged "awaiting approval" with nobody actually assigned.
+            user = User.query.filter(
+                User.is_active == True, User.role.in_(('admin', 'approver'))
+            ).order_by(User.id).first()
+
+        if user:
+            invoice.assigned_approver_id = user.id
 
     def _matching_rule(self, invoice: Invoice) -> dict | None:
         """Return the first rule (in saved order) that matches this invoice."""

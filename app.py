@@ -488,6 +488,23 @@ def create_app():
             return jsonify({'error': 'Cannot reject invoice in its current state'}), 400
         return jsonify({'success': True, 'status': inv.status})
 
+    @app.route('/api/invoices/<int:invoice_id>/assign-approver', methods=['POST'])
+    def api_assign_approver(invoice_id):
+        inv     = db.get_or_404(Invoice, invoice_id)
+        user_id = (request.get_json() or {}).get('user_id')
+        user    = db.session.get(User, user_id) if user_id else None
+        if not user or not user.is_active:
+            return jsonify({'error': 'Invalid or inactive user'}), 400
+
+        inv.assigned_approver_id = user.id
+        db.session.add(AuditLog(
+            invoice_id=inv.id, action='approver_reassigned',
+            user_name=session.get('user_name', 'system'),
+            notes=f'Assigned to {user.name}'
+        ))
+        db.session.commit()
+        return jsonify({'success': True})
+
     @app.route('/api/invoices/<int:invoice_id>/post-to-finance', methods=['POST'])
     def api_post_to_finance(invoice_id):
         inv = db.get_or_404(Invoice, invoice_id)

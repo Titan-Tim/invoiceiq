@@ -112,7 +112,14 @@
       <!-- Approval -->
       <div class="detail-section" id="approval-section" style="display:none">
         <h6>Approval</h6>
-        <div class="detail-row"><span class="detail-label">Assigned To</span><span class="detail-value" id="d-approver"></span></div>
+        <div class="detail-row">
+          <span class="detail-label">Assigned To</span>
+          <span class="detail-value d-flex align-items-center gap-2">
+            <span id="d-approver"></span>
+            <select class="form-select form-select-sm d-none" id="reassign-select" style="max-width:200px"></select>
+            <button class="btn btn-sm btn-outline-secondary d-none" id="btn-reassign">Assign</button>
+          </span>
+        </div>
         <div class="detail-row" id="d-approved-row" style="display:none">
           <span class="detail-label">Approved By</span><span class="detail-value" id="d-approved-by"></span>
         </div>
@@ -259,6 +266,9 @@ async function loadInvoice() {
   if (data.requires_approval || data.assigned_approver || data.rejection_reason) {
     document.getElementById('approval-section').style.display = 'block';
     document.getElementById('d-approver').textContent = data.assigned_approver ? data.assigned_approver.name : 'Not assigned';
+    if (data.status === 'awaiting_approval') {
+      loadApproverOptions(data.assigned_approver?.id);
+    }
     if (data.approved_by) {
       document.getElementById('d-approved-row').style.display = 'flex';
       document.getElementById('d-approved-by').textContent = data.approved_by.name;
@@ -304,6 +314,27 @@ async function deleteInvoice() {
   } else {
     showToast(r.error || 'Could not delete invoice', 'danger');
   }
+}
+
+async function loadApproverOptions(currentApproverId) {
+  const select = document.getElementById('reassign-select');
+  const btn    = document.getElementById('btn-reassign');
+  const data   = await fetch('/api/users').then(r => r.json()).catch(() => ({users:[]}));
+  const eligible = (data.users || []).filter(u => u.is_active && (u.role === 'admin' || u.role === 'approver'));
+  if (!eligible.length) return;
+
+  select.innerHTML = eligible.map(u =>
+    `<option value="${u.id}" ${u.id === currentApproverId ? 'selected' : ''}>${u.name}</option>`).join('');
+  select.classList.remove('d-none');
+  btn.classList.remove('d-none');
+  btn.onclick = async () => {
+    const r = await fetch(`/api/invoices/${invoiceId}/assign-approver`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user_id: +select.value }),
+    }).then(r => r.json());
+    if (r.success) { showToast('Approver updated', 'success'); loadInvoice(); }
+    else showToast(r.error || 'Could not assign approver', 'danger');
+  };
 }
 
 document.getElementById('confirm-approve').addEventListener('click', async () => {
