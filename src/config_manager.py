@@ -66,6 +66,15 @@ DEFAULT_SETTINGS = {
 
 def load_settings() -> dict:
     if not CONFIG_PATH.exists():
+        if os.environ.get('CONFIG_DIR'):
+            # CONFIG_DIR is only set on a hosted deployment with a persistent
+            # disk — settings.json missing there means either a genuinely
+            # fresh install, or the disk wasn't mounted/available when this
+            # was checked. Log loudly so a silent settings reset is visible
+            # in the deploy logs rather than just appearing as "wizard again".
+            print(f"WARNING: settings.json not found at {CONFIG_PATH} — "
+                  f"writing fresh defaults. If this is not a new install, "
+                  f"the persistent disk may not have been mounted yet.", flush=True)
         CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
         save_settings(DEFAULT_SETTINGS)
         return _deep_copy(DEFAULT_SETTINGS)
