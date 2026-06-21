@@ -6,6 +6,7 @@ Access tokens expire after 30 minutes; refresh tokens last 60 days.
 import base64
 import json
 import re
+import threading
 from datetime import datetime, timezone, timedelta
 from difflib import SequenceMatcher
 from pathlib import Path
@@ -26,6 +27,12 @@ CONNECTIONS   = 'https://api.xero.com/connections'
 API_BASE      = 'https://api.xero.com/api.xro/2.0'
 SCOPE         = ('offline_access openid profile email '
                  'accounting.transactions accounting.contacts accounting.settings')
+
+# Xero rotates the refresh token on every use and invalidates the old one
+# immediately. The background email-poll scheduler and a user action in the
+# browser run on separate threads in the same process and can both decide to
+# refresh at once — this lock makes that impossible by serialising access.
+_refresh_lock = threading.Lock()
 
 
 class XeroConnector(BaseConnector):
@@ -224,13 +231,17 @@ class XeroConnector(BaseConnector):
     # ------------------------------------------------------------------ #
 
     def _headers(self) -> dict:
-        tokens = self._load_tokens()
-        if not tokens:
-            raise RuntimeError("Xero is not connected. Authorise in Settings.")
+        with _refresh_lock:
+            # Re-read from disk while holding the lock — if another thread
+            # just refreshed, this picks up its fresh token instead of
+            # racing to refresh again with the now-invalid old one.
+            tokens = self._load_tokens()
+            if not tokens:
+                raise RuntimeError("Xero is not connected. Authorise in Settings.")
 
-        exp = tokens.get('expires_at', '')
-        if exp and datetime.now(timezone.utc) >= datetime.fromisoformat(exp) - timedelta(seconds=60):
-            tokens = self._refresh(tokens)
+            exp = tokens.get('expires_at', '')
+            if exp and datetime.now(timezone.utc) >= datetime.fromisoformat(exp) - timedelta(seconds=60):
+                tokens = self._refresh(tokens)
 
         return {
             'Authorization':  f"Bearer {tokens['access_token']}",

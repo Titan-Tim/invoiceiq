@@ -5,6 +5,7 @@ Tokens are stored in config/tokens_qbo.json and refreshed automatically.
 import base64
 import json
 import secrets
+import threading
 from datetime import datetime, timezone, timedelta
 from difflib import SequenceMatcher
 from pathlib import Path
@@ -25,6 +26,12 @@ REVOKE_URL  = 'https://developer.api.intuit.com/v2/oauth2/tokens/revoke'
 SCOPE       = 'com.intuit.quickbooks.accounting'
 PROD_BASE   = 'https://quickbooks.api.intuit.com/v3/company'
 SAND_BASE   = 'https://sandbox-quickbooks.api.intuit.com/v3/company'
+
+# QBO rotates the refresh token on every use and invalidates the old one
+# immediately. The background email-poll scheduler and a user action in the
+# browser run on separate threads in the same process and can both decide to
+# refresh at once — this lock makes that impossible by serialising access.
+_refresh_lock = threading.Lock()
 
 
 class QBOConnector(BaseConnector):
@@ -228,16 +235,19 @@ class QBOConnector(BaseConnector):
         }
 
     def _access_token(self) -> str:
-        tokens = self._load_tokens()
-        if not tokens:
-            raise RuntimeError(
-                "QuickBooks Online is not connected. Authorise in Settings."
-            )
-        # Refresh if expiring within 60 s
-        exp = tokens.get('expires_at', '')
-        if exp and datetime.now(timezone.utc) >= datetime.fromisoformat(exp) - timedelta(seconds=60):
-            tokens = self._refresh(tokens)
-        return tokens['access_token']
+        with _refresh_lock:
+            # Re-read from disk while holding the lock — if another thread
+            # just refreshed, this picks up its fresh token instead of
+            # racing to refresh again with the now-invalid old one.
+            tokens = self._load_tokens()
+            if not tokens:
+                raise RuntimeError(
+                    "QuickBooks Online is not connected. Authorise in Settings."
+                )
+            exp = tokens.get('expires_at', '')
+            if exp and datetime.now(timezone.utc) >= datetime.fromisoformat(exp) - timedelta(seconds=60):
+                tokens = self._refresh(tokens)
+            return tokens['access_token']
 
     def _refresh(self, tokens: dict) -> dict:
         resp = requests.post(
