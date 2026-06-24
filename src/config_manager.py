@@ -54,6 +54,13 @@ DEFAULT_SETTINGS = {
         "api_key": "",
         "model":   "claude-opus-4-7"
     },
+    "integrations": {
+        "ledgeriq": {
+            "enabled":      False,
+            "api_base_url": "https://ledgeriq-three.vercel.app",
+            "api_key":      ""
+        }
+    },
     "app": {
         "company_name":            "",
         "currency":                "GBP",

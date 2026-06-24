@@ -6,6 +6,7 @@ import uuid
 from datetime import datetime
 from pathlib import Path
 
+import requests
 from werkzeug.utils import secure_filename
 
 from flask import (Flask, render_template, request, jsonify,
@@ -535,6 +536,15 @@ def create_app():
                 inv.status_message = f"Approved — finance post failed: {e}"
                 db.session.commit()
 
+        if settings.get('integrations', {}).get('ledgeriq', {}).get('enabled'):
+            try:
+                _post_to_ledgeriq(inv, settings)
+            except Exception as e:
+                app.logger.error(f"LedgerIQ post failed for invoice {inv.id}: {e}")
+                note = f"LedgerIQ post failed: {e}"
+                inv.status_message = f"{inv.status_message} | {note}" if inv.status_message else note
+                db.session.commit()
+
         return jsonify({'success': True, 'status': inv.status})
 
     @app.route('/api/invoices/<int:invoice_id>/reject', methods=['POST'])
@@ -691,6 +701,8 @@ def create_app():
         _mask(safe, ('qbo',   'client_secret'))
         _mask(safe, ('xero',  'client_secret'))
         _mask(safe, ('claude','api_key'))
+        if safe.get('integrations', {}).get('ledgeriq', {}).get('api_key'):
+            safe['integrations']['ledgeriq']['api_key'] = '••••••••'
         return jsonify(safe)
 
     @app.route('/api/settings', methods=['POST'])
@@ -703,6 +715,9 @@ def create_app():
                      ('claude', 'api_key')):
             if new.get(path[0], {}).get(path[1]) == '••••••••':
                 new[path[0]][path[1]] = current[path[0]].get(path[1], '')
+        if new.get('integrations', {}).get('ledgeriq', {}).get('api_key') == '••••••••':
+            new['integrations']['ledgeriq']['api_key'] = \
+                current.get('integrations', {}).get('ledgeriq', {}).get('api_key', '')
         _sync_approver_users(new)          # hash any approver passwords into User table first
         _strip_approver_passwords(new)     # then strip plaintext before persisting to disk
         save_settings(new)
@@ -929,6 +944,61 @@ def create_app():
             invoice_id=inv.id, action='posted_to_finance',
             user_name=session.get('user_name', 'system'),
             notes=f"Posted to {get_system_name()} — ref: {ref}"
+        ))
+        db.session.commit()
+
+    def _post_to_ledgeriq(inv: Invoice, settings: dict):
+        """Push an approved supplier invoice into LedgerIQ as a purchase bill.
+        Best-effort — failures here are logged but never block approval, since
+        LedgerIQ bookkeeping is a convenience mirror, not the system of record
+        this app posts to (that's Sage/QBO/Xero via _post_to_finance)."""
+        cfg = settings.get('integrations', {}).get('ledgeriq', {})
+        api_key = cfg.get('api_key')
+        base_url = (cfg.get('api_base_url') or '').rstrip('/')
+        if not api_key or not base_url:
+            raise ValueError("LedgerIQ integration is enabled but missing an API key or base URL")
+
+        payload = {
+            'externalId':     str(inv.id),
+            'supplierName':   inv.supplier_name,
+            'supplierRef':    inv.supplier_ref or None,
+            'invoiceNumber':  inv.invoice_number or f"AP-{inv.id}",
+            'invoiceDate':    inv.invoice_date.isoformat() if inv.invoice_date else datetime.utcnow().date().isoformat(),
+            'poReference':    inv.po_reference or None,
+            'lines': [{
+                'description': l.description or '(no description)',
+                'quantity':    float(l.quantity or 1),
+                'unitPrice':   float(l.unit_price or 0),
+                'lineTotal':   float(l.line_total or 0),
+                'vatRate':     float(l.vat_rate or 0),
+            } for l in inv.lines] or [{
+                'description': inv.invoice_number or 'Invoice',
+                'quantity':    1,
+                'unitPrice':   float(inv.subtotal or 0),
+                'lineTotal':   float(inv.subtotal or 0),
+                'vatRate':     0,
+            }],
+        }
+
+        resp = requests.post(
+            f"{base_url}/api/v1/purchase-invoices",
+            headers={
+                'Authorization': f"Bearer {api_key}",
+                'Accept': 'application/json',
+                'Content-Type': 'application/json',
+            },
+            json=payload,
+            timeout=15,
+        )
+        if not resp.ok:
+            raise RuntimeError(f"{resp.status_code} {resp.reason}: {resp.text[:500]}")
+
+        result = resp.json()
+        db.session.add(AuditLog(
+            invoice_id=inv.id, action='posted_to_ledgeriq',
+            user_name=session.get('user_name', 'system'),
+            notes=f"Posted to LedgerIQ — invoice id: {result.get('invoiceId')}"
+                  + (" (new supplier created)" if result.get('supplierCreated') else "")
         ))
         db.session.commit()
 
