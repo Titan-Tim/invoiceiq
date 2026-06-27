@@ -302,14 +302,17 @@ def create_app():
 
     @app.route('/api/invoices')
     def api_invoices():
-        status   = request.args.get('status', '')
-        search   = request.args.get('search', '').strip()
-        page     = max(int(request.args.get('page', 1)), 1)
-        per_page = min(int(request.args.get('per_page', 25)), 100)
+        status          = request.args.get('status', '')
+        search          = request.args.get('search', '').strip()
+        needs_attention = request.args.get('needs_attention', '') == '1'
+        page            = max(int(request.args.get('page', 1)), 1)
+        per_page        = min(int(request.args.get('per_page', 25)), 100)
 
         q = Invoice.query
         if status:
             q = q.filter_by(status=status)
+        if needs_attention:
+            q = q.filter_by(push_failed=True)
         if search:
             q = q.filter(db.or_(
                 Invoice.supplier_name.ilike(f'%{search}%'),
@@ -534,18 +537,19 @@ def create_app():
                 _post_to_finance(inv)
             except Exception as e:
                 inv.status_message = f"Approved — finance post failed: {e}"
-                db.session.commit()
 
         if settings.get('integrations', {}).get('ledgeriq', {}).get('enabled'):
             try:
                 _post_to_ledgeriq(inv, settings)
             except Exception as e:
                 app.logger.error(f"LedgerIQ post failed for invoice {inv.id}: {e}")
-                note = f"LedgerIQ post failed: {e}"
+                note = f"Jasmitan Ledger post failed: {_friendly_ledgeriq_error(e)}"
                 inv.status_message = f"{inv.status_message} | {note}" if inv.status_message else note
-                db.session.commit()
 
-        return jsonify({'success': True, 'status': inv.status})
+        _recompute_push_failed(inv, settings)
+        db.session.commit()
+
+        return jsonify({'success': True, 'status': inv.status, 'push_failed': inv.push_failed})
 
     @app.route('/api/invoices/<int:invoice_id>/reject', methods=['POST'])
     def api_reject(invoice_id):
@@ -578,12 +582,39 @@ def create_app():
     @app.route('/api/invoices/<int:invoice_id>/post-to-finance', methods=['POST'])
     def api_post_to_finance(invoice_id):
         inv = db.get_or_404(Invoice, invoice_id)
+        settings = load_settings()
         try:
             _post_to_finance(inv)
+            inv.status_message = None
+            _recompute_push_failed(inv, settings)
+            db.session.commit()
             return jsonify({'success': True, 'status': inv.status,
-                            'transaction_ref': inv.sage_transaction_ref})
+                            'transaction_ref': inv.sage_transaction_ref,
+                            'push_failed': inv.push_failed})
         except Exception as e:
+            inv.status_message = f"Finance post failed: {e}"
+            _recompute_push_failed(inv, settings)
+            db.session.commit()
             return jsonify({'error': str(e)}), 500
+
+    @app.route('/api/invoices/<int:invoice_id>/post-to-ledgeriq', methods=['POST'])
+    def api_post_to_ledgeriq(invoice_id):
+        inv = db.get_or_404(Invoice, invoice_id)
+        settings = load_settings()
+        if not settings.get('integrations', {}).get('ledgeriq', {}).get('enabled'):
+            return jsonify({'error': 'Jasmitan Ledger integration is not enabled in Settings'}), 400
+        try:
+            _post_to_ledgeriq(inv, settings)
+            inv.status_message = None
+            _recompute_push_failed(inv, settings)
+            db.session.commit()
+            return jsonify({'success': True, 'push_failed': inv.push_failed})
+        except Exception as e:
+            friendly = _friendly_ledgeriq_error(e)
+            inv.status_message = f"Jasmitan Ledger post failed: {friendly}"
+            _recompute_push_failed(inv, settings)
+            db.session.commit()
+            return jsonify({'error': friendly}), 500
 
     @app.route('/api/invoices/<int:invoice_id>', methods=['DELETE'])
     def api_delete_invoice(invoice_id):
@@ -614,6 +645,11 @@ def create_app():
             status='awaiting_approval',
             **(dict(assigned_approver_id=uid) if uid else {})
         ).count()
+        return jsonify({'count': count})
+
+    @app.route('/api/needs-attention-count')
+    def api_needs_attention_count():
+        count = Invoice.query.filter_by(push_failed=True).count()
         return jsonify({'count': count})
 
     # ------------------------------------------------------------------ #
@@ -899,6 +935,31 @@ def create_app():
     # ------------------------------------------------------------------ #
     # Internal helpers
     # ------------------------------------------------------------------ #
+
+    def _friendly_ledgeriq_error(e: Exception) -> str:
+        """Translate LedgerIQ's raw API error text into something a user can act on."""
+        msg = str(e)
+        if 'Unique constraint failed' in msg and 'invoiceNumber' in msg:
+            return ("LedgerIQ already has an invoice with this invoice number for this supplier/direction. "
+                    "Edit the invoice number on this invoice, then retry.")
+        if 'No expense category configured' in msg:
+            return "LedgerIQ has no expense category set up for this organisation — add one in LedgerIQ under Categories, then retry."
+        if 'Invalid API key' in msg:
+            return "LedgerIQ rejected the API key — check it in Settings."
+        if 'invalid_type' in msg or 'Invalid payload' in msg:
+            return f"LedgerIQ rejected the data sent (validation error): {msg}"
+        return f"LedgerIQ error: {msg}"
+
+    def _recompute_push_failed(inv: Invoice, settings: dict):
+        """Re-derive the push_failed flag from actual outcomes, since finance and
+        LedgerIQ pushes are independent and either can fail/succeed on its own."""
+        finance_needed = bool(inv.supplier_ref or inv.supplier_name)
+        finance_ok = bool(inv.sage_transaction_ref)
+
+        ledgeriq_needed = settings.get('integrations', {}).get('ledgeriq', {}).get('enabled', False)
+        ledgeriq_ok = bool(AuditLog.query.filter_by(invoice_id=inv.id, action='posted_to_ledgeriq').first())
+
+        inv.push_failed = (finance_needed and not finance_ok) or (ledgeriq_needed and not ledgeriq_ok)
 
     def _post_to_finance(inv: Invoice):
         connector = get_connector()

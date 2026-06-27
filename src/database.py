@@ -55,6 +55,7 @@ class Invoice(db.Model):
     # Status
     status = db.Column(db.String(50), default='received', index=True)
     status_message = db.Column(db.Text)
+    push_failed = db.Column(db.Boolean, default=False, index=True)
 
     # PO Match
     matched_po_id = db.Column(db.Integer, db.ForeignKey('purchase_orders.id'))
@@ -123,6 +124,8 @@ class Invoice(db.Model):
             'requires_approval': self.requires_approval,
             'match_confidence': self.match_confidence,
             'extraction_confidence': self.extraction_confidence,
+            'push_failed': self.push_failed,
+            'status_message': self.status_message,
         }
 
 

@@ -43,11 +43,31 @@ function refreshApprovalBadge() {
     .catch(() => {});
 }
 
+// ---- Needs-attention badge ----
+
+function refreshAttentionBadge() {
+  fetch('/api/needs-attention-count')
+    .then(r => r.json())
+    .then(d => {
+      const badge = document.getElementById('attention-badge');
+      if (!badge) return;
+      if (d.count > 0) {
+        badge.textContent = d.count;
+        badge.style.display = 'inline-block';
+      } else {
+        badge.style.display = 'none';
+      }
+    })
+    .catch(() => {});
+}
+
 // ---- Manual email poll ----
 
 document.addEventListener('DOMContentLoaded', () => {
   refreshApprovalBadge();
   setInterval(refreshApprovalBadge, 30000);
+  refreshAttentionBadge();
+  setInterval(refreshAttentionBadge, 30000);
 
   const btn = document.getElementById('btn-poll-email');
   if (btn) {

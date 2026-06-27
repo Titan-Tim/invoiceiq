@@ -50,6 +50,12 @@
           <span class="badge bg-warning text-dark ms-auto" id="approval-badge" style="display:none"></span>
         </a>
       </li>
+      <li class="nav-item">
+        <a class="nav-link" href="{{ url_for('invoices') }}?needs_attention=1">
+          <i class="bi bi-exclamation-triangle"></i> Needs Attention
+          <span class="badge bg-danger ms-auto" id="attention-badge" style="display:none"></span>
+        </a>
+      </li>
     </ul>
     <div class="sidebar-section-label mt-3">SYSTEM</div>
     <ul class="nav flex-column">

@@ -12,6 +12,11 @@
 
 <div id="inv-content" style="display:none">
 
+  <div id="needs-attention-banner" class="alert alert-warning d-flex align-items-center gap-2 mb-3" style="display:none">
+    <i class="bi bi-exclamation-triangle-fill"></i>
+    <span id="needs-attention-text"></span>
+  </div>
+
   <!-- Status bar -->
   <div class="detail-section mb-3 d-flex align-items-center justify-content-between flex-wrap gap-3">
     <div class="d-flex align-items-center gap-3">
@@ -407,10 +412,11 @@ async function loadInvoice() {
       </div>
     </div>`).join('') || '<div class="text-muted small">No activity yet</div>';
 
-  renderActions(data.status);
+  renderActions(data);
 }
 
-function renderActions(status) {
+function renderActions(data) {
+  const status = data.status;
   const btns = document.getElementById('action-buttons');
   let html = '';
   if (status === 'awaiting_approval') {
@@ -419,9 +425,19 @@ function renderActions(status) {
   }
   if (['matched','partial_match','approved'].includes(status)) {
     html += `<button class="btn btn-primary" onclick="postToFinance()"><i class="bi bi-cloud-upload me-1"></i>Post to Finance</button>`;
+    html += `<button class="btn btn-outline-primary" onclick="postToLedgerIQ()"><i class="bi bi-journal-text me-1"></i>Post to Jasmitan Ledger</button>`;
   }
   html += `<button class="btn btn-outline-danger" onclick="deleteInvoice()"><i class="bi bi-trash me-1"></i>Delete</button>`;
   btns.innerHTML = html;
+
+  const banner = document.getElementById('needs-attention-banner');
+  if (data.push_failed) {
+    banner.style.display = '';
+    document.getElementById('needs-attention-text').textContent =
+      data.status_message || 'A push to Finance or Jasmitan Ledger failed — see Activity Log below.';
+  } else {
+    banner.style.display = 'none';
+  }
 }
 
 async function deleteInvoice() {
@@ -482,6 +498,14 @@ async function postToFinance() {
   const r = await fetch(`/api/invoices/${invoiceId}/post-to-finance`,{method:'POST'}).then(r=>r.json());
   if (r.success) { showToast(`Posted — Ref: ${r.transaction_ref}`,'success'); loadInvoice(); }
   else showToast(r.error||'Post failed','danger');
+}
+
+async function postToLedgerIQ() {
+  const btn = document.querySelector('[onclick="postToLedgerIQ()"]');
+  if (btn) { btn.disabled=true; btn.innerHTML='<i class="bi bi-arrow-repeat spinning me-1"></i>Posting…'; }
+  const r = await fetch(`/api/invoices/${invoiceId}/post-to-ledgeriq`,{method:'POST'}).then(r=>r.json());
+  if (r.success) { showToast('Posted to Jasmitan Ledger','success'); loadInvoice(); }
+  else { showToast(r.error||'Post failed','danger'); loadInvoice(); }
 }
 
 loadInvoice();

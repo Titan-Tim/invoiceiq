@@ -18,6 +18,10 @@
 <div id="upload-list"></div>
 
 <!-- Filter bar -->
+<div id="needs-attention-pill" class="alert alert-warning d-flex align-items-center justify-content-between py-2 px-3 mb-3" style="display:none">
+  <span><i class="bi bi-exclamation-triangle-fill me-1"></i>Showing only invoices that need attention (a Finance or Jasmitan Ledger push failed)</span>
+  <a href="{{ url_for('invoices') }}" class="btn btn-sm btn-outline-secondary">Clear filter</a>
+</div>
 <div class="filter-bar">
   <div class="input-group" style="max-width:280px">
     <span class="input-group-text bg-white border-end-0"><i class="bi bi-search text-muted"></i></span>
@@ -76,12 +80,15 @@
 <script>
 let currentPage = 1;
 let searchTimer = null;
+let needsAttentionFilter = new URLSearchParams(window.location.search).get('needs_attention') === '1';
 
 function loadInvoices(page = 1) {
   currentPage = page;
   const search = document.getElementById('search-input').value.trim();
   const status = document.getElementById('status-filter').value;
   const params = new URLSearchParams({ page, per_page: 25, search, status });
+  if (needsAttentionFilter) params.set('needs_attention', '1');
+  document.getElementById('needs-attention-pill').style.display = needsAttentionFilter ? '' : 'none';
 
   document.getElementById('invoice-tbody').innerHTML =
     `<tr><td colspan="8" class="text-center py-4 text-muted">Loading…</td></tr>`;
@@ -102,6 +109,7 @@ function loadInvoices(page = 1) {
           <td class="text-muted">${inv.id}</td>
           <td><strong>${inv.supplier_name || '—'}</strong>
             ${inv.requires_approval ? '<i class="bi bi-person-check text-warning ms-1" title="Requires approval"></i>' : ''}
+            ${inv.push_failed ? `<i class="bi bi-exclamation-triangle-fill text-danger ms-1" title="${(inv.status_message || 'Push failed').replace(/"/g, '&quot;')}"></i>` : ''}
           </td>
           <td class="text-muted">${inv.invoice_number || '—'}</td>
           <td>${inv.po_reference ? `<code class="text-primary">${inv.po_reference}</code>` : '<span class="text-muted">—</span>'}</td>
