@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Setup — InvoiceIQ</title>
+  <title>Setup — Jasmitan Invoice</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
   <style>
@@ -131,7 +131,7 @@
 
     <!-- ═══════════════ STEP 1 : WELCOME ═══════════════ -->
     <div class="step-panel active" id="sp-1">
-      <div class="step-title">Welcome to InvoiceIQ 👋</div>
+      <div class="step-title">Welcome to Jasmitan Invoice 👋</div>
       <p class="step-desc">Let's get your accounts payable automation up and running. This will take about 5 minutes and you can always change these settings later.</p>
       <div class="row g-3">
         <div class="col-sm-8">
@@ -151,7 +151,7 @@
       <hr class="my-4">
       <div class="step-desc mb-3" style="margin-bottom:0;">
         <strong style="color:#0f172a;">Create your admin account</strong>
-        <p class="mb-0 mt-1">This is what you'll use to sign in to InvoiceIQ going forward.</p>
+        <p class="mb-0 mt-1">This is what you'll use to sign in to Jasmitan Invoice going forward.</p>
       </div>
       <div class="row g-3 mt-2">
         <div class="col-sm-6">
@@ -183,7 +183,7 @@
     <!-- ═══════════════ STEP 2 : FINANCE SYSTEM ═══════════════ -->
     <div class="step-panel" id="sp-2">
       <div class="step-title">Which accounting software do you use?</div>
-      <p class="step-desc">InvoiceIQ will connect directly to your finance system to sync purchase orders and post approved invoices.</p>
+      <p class="step-desc">Jasmitan Invoice will connect directly to your finance system to sync purchase orders and post approved invoices.</p>
 
       <div id="sys-cards">
         <label class="sys-card" id="sc-qbo">
@@ -312,7 +312,7 @@
       <!-- Sage panel -->
       <div id="cfg-sage" class="sys-panel d-none">
         <div class="step-title">Configure Sage 50</div>
-        <p class="step-desc">InvoiceIQ connects to Sage via the SDO (Sage Data Object) API. Sage 50 must be installed on this PC.</p>
+        <p class="step-desc">Jasmitan Invoice connects to Sage via the SDO (Sage Data Object) API. Sage 50 must be installed on this PC.</p>
         <div class="row g-3">
           <div class="col-12">
             <label class="form-label">Sage Data Path</label>
@@ -370,7 +370,7 @@
     <!-- ═══════════════ STEP 4 : EMAIL ═══════════════ -->
     <div class="step-panel" id="sp-4">
       <div class="step-title">Connect your invoice mailbox</div>
-      <p class="step-desc">InvoiceIQ monitors an O365 mailbox for incoming invoice emails. You'll need an Azure App Registration with <code>Mail.Read</code> and <code>Mail.ReadWrite</code> permissions.</p>
+      <p class="step-desc">Jasmitan Invoice monitors an O365 mailbox for incoming invoice emails. You'll need an Azure App Registration with <code>Mail.Read</code> and <code>Mail.ReadWrite</code> permissions.</p>
       <div class="row g-3">
         <div class="col-sm-6">
           <label class="form-label">Tenant ID</label>
@@ -409,7 +409,7 @@
     <!-- ═══════════════ STEP 5 : CLAUDE AI ═══════════════ -->
     <div class="step-panel" id="sp-5">
       <div class="step-title">Add your Claude AI key</div>
-      <p class="step-desc">InvoiceIQ uses Claude to read and extract data from invoice PDFs and images. Get your API key from <a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a> — a free tier is available to get started.</p>
+      <p class="step-desc">Jasmitan Invoice uses Claude to read and extract data from invoice PDFs and images. Get your API key from <a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a> — a free tier is available to get started.</p>
       <div class="row g-3">
         <div class="col-12">
           <label class="form-label fw-semibold">Claude API Key</label>
@@ -440,7 +440,7 @@
     <div class="step-panel" id="sp-done">
       <div class="done-wrap">
         <div class="done-icon"><i class="bi bi-check2-circle"></i></div>
-        <div class="done-title">InvoiceIQ is ready!</div>
+        <div class="done-title">Jasmitan Invoice is ready!</div>
         <p class="done-sub">Your setup is complete. Head to the dashboard to start processing invoices.</p>
         <a href="/" class="btn btn-primary btn-lg px-5">
           <i class="bi bi-speedometer2 me-2"></i>Go to Dashboard
