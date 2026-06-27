@@ -57,7 +57,7 @@ DEFAULT_SETTINGS = {
     "integrations": {
         "ledgeriq": {
             "enabled":      False,
-            "api_base_url": "https://ledgeriq-three.vercel.app",
+            "api_base_url": "https://jasmitan.co.uk/ledger",
             "api_key":      ""
         }
     },
