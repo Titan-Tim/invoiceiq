@@ -449,4 +449,45 @@ body { background: var(--body-bg); font-family: 'Segoe UI', system-ui, sans-seri
 
 .match-line { font-size: 0.8rem; padding: 4px 0; border-bottom: 1px solid #f1f5f9; }
 .match-line:last-child { border-bottom: none; }
+
+/* ---- Mobile nav toggle ---- */
+
+#mobile-nav-toggle { display: none; }
+#sidebar-overlay { display: none; }
+
+/* ---- Responsive: collapsible sidebar below 768px ---- */
+
+@media (max-width: 768px) {
+  #sidebar {
+    transform: translateX(-100%);
+    transition: transform 0.2s ease;
+  }
+  #sidebar.open { transform: translateX(0); }
+
+  #main-content { margin-left: 0; }
+
+  #mobile-nav-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border: none;
+    background: transparent;
+    font-size: 1.25rem;
+    color: var(--text-muted);
+  }
+
+  #sidebar-overlay.open {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.4);
+    z-index: 190;
+  }
+
+  .topbar { padding-left: 12px !important; padding-right: 12px !important; gap: 8px; }
+  .topbar h5 { font-size: 1rem; }
+  .content-body { padding-left: 12px; padding-right: 12px; }
+}
 .discrepancy-item { background: #fff7ed; border-left: 3px solid var(--warning); padding: 6px 10px; border-radius: 0 6px 6px 0; font-size: 0.8rem; margin-bottom: 4px; }

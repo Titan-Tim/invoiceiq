@@ -2,6 +2,18 @@
    Jasmitan Invoice — Global JS
    ============================================================ */
 
+// ---- Mobile nav ----
+
+function toggleMobileNav() {
+  document.getElementById('sidebar')?.classList.toggle('open');
+  document.getElementById('sidebar-overlay')?.classList.toggle('open');
+}
+
+function closeMobileNav() {
+  document.getElementById('sidebar')?.classList.remove('open');
+  document.getElementById('sidebar-overlay')?.classList.remove('open');
+}
+
 // ---- Toast ----
 
 function showToast(message, type = 'success') {

@@ -26,7 +26,7 @@
         <circle cx="22.5" cy="22.5" r="6" fill="#10b981"/>
         <polyline points="19,22.5 21.5,25 26,20" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
       </svg>
-      <span class="brand-text">Invoice<strong>IQ</strong></span>
+      <span class="brand-text">Jasmitan <strong>Invoice</strong></span>
     </div>
     <div class="sidebar-system-badge">{{ finance_system_name }}</div>
     <div class="sidebar-section-label">MENU</div>
@@ -69,10 +69,17 @@
     </div>
   </nav>
 
+  <div id="sidebar-overlay" onclick="closeMobileNav()"></div>
+
   <!-- Main content -->
   <div id="main-content">
     <div class="topbar d-flex align-items-center justify-content-between px-4">
-      <h5 class="mb-0 fw-semibold">{% block page_title %}{% endblock %}</h5>
+      <div class="d-flex align-items-center gap-2">
+        <button id="mobile-nav-toggle" onclick="toggleMobileNav()" aria-label="Open menu">
+          <i class="bi bi-list"></i>
+        </button>
+        <h5 class="mb-0 fw-semibold">{% block page_title %}{% endblock %}</h5>
+      </div>
       <div class="d-flex align-items-center gap-3">
         <button class="btn btn-sm btn-outline-primary" id="btn-poll-email" title="Check email now">
           <i class="bi bi-envelope-arrow-down"></i> Check Email
