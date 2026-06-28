@@ -13,6 +13,7 @@ class User(db.Model):
     password_hash = db.Column(db.String(255))
     role = db.Column(db.String(50), default='approver')  # admin, approver, viewer
     is_active = db.Column(db.Boolean, default=True)
+    must_change_password = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     def set_password(self, password: str):

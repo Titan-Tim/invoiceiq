@@ -10,7 +10,7 @@ import requests
 from werkzeug.utils import secure_filename
 
 from flask import (Flask, render_template, request, jsonify,
-                   session, redirect, url_for, send_file)
+                   session, redirect, url_for, send_file, flash)
 
 from src.database import db, Invoice, InvoiceLine, PurchaseOrder, POLine, User, AuditLog
 from src.config_manager import load_settings, save_settings
@@ -81,7 +81,7 @@ def create_app():
     def _user_name():  return session.get('user_name', 'System')
     def _user_id():    return session.get('user_id')
 
-    PUBLIC_ENDPOINTS = {'login', 'healthz', 'static', 'privacy_policy', 'terms_of_use'}
+    PUBLIC_ENDPOINTS = {'login', 'forgot_password', 'healthz', 'static', 'privacy_policy', 'terms_of_use'}
     WIZARD_PATH_PREFIXES = ('/api/wizard', '/api/settings', '/auth/')
 
     @app.before_request
@@ -146,9 +146,30 @@ def create_app():
             if user and user.check_password(password):
                 session.update({'user_id': user.id, 'user_name': user.name,
                                 'user_role': user.role})
+                if user.must_change_password:
+                    flash('Please set a new password to continue.', 'warning')
+                    return redirect(url_for('settings_page'))
                 return redirect(url_for('dashboard'))
             error = 'Incorrect email or password.'
         return render_template('login.html', error=error)
+
+    @app.route('/forgot-password', methods=['GET', 'POST'])
+    def forgot_password():
+        submitted = False
+        if request.method == 'POST':
+            email = request.form.get('email', '').strip().lower()
+            user = User.query.filter_by(email=email, is_active=True).first()
+            if user:
+                temp_password = secrets.token_urlsafe(9)
+                user.set_password(temp_password)
+                user.must_change_password = True
+                db.session.commit()
+                try:
+                    _send_password_reset_email(user, temp_password)
+                except Exception as e:
+                    app.logger.error(f"Forgot-password email failed: {e}")
+            submitted = True
+        return render_template('forgot_password.html', submitted=submitted)
 
     @app.route('/logout')
     def logout():
@@ -852,6 +873,7 @@ def create_app():
             return jsonify({'error': 'New password must be at least 8 characters.'}), 400
 
         user.set_password(new_pass)
+        user.must_change_password = False
         db.session.commit()
         return jsonify({'success': True})
 
@@ -935,6 +957,43 @@ def create_app():
     # ------------------------------------------------------------------ #
     # Internal helpers
     # ------------------------------------------------------------------ #
+
+    def _send_password_reset_email(user: User, temp_password: str):
+        api_key = os.environ.get('RESEND_API_KEY')
+        if not api_key:
+            app.logger.warning("RESEND_API_KEY not configured — skipping password reset email")
+            return
+        login_url = f"{os.environ.get('APP_URL', 'https://invoice.jasmitan.co.uk')}/login"
+        resp = requests.post(
+            "https://api.resend.com/emails",
+            headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+            json={
+                "from": os.environ.get('EMAIL_FROM', 'Jasmitan Invoice <noreply@smart-iq.co.uk>'),
+                "to": user.email,
+                "subject": "Your Jasmitan Invoice password has been reset",
+                "html": f"""
+                  <div style="font-family:Arial,Helvetica,sans-serif;color:#1e293b;max-width:480px;margin:0 auto;">
+                    <h2 style="margin:0 0 12px;">Password reset, {user.name}</h2>
+                    <p style="font-size:14px;color:#475569;">
+                      You (or someone on your behalf) requested a password reset for Jasmitan Invoice.
+                      Use the temporary password below to log in — you'll be asked to set your own password right away.
+                    </p>
+                    <div style="margin:20px 0;padding:16px;background:#f8fafc;border-radius:8px;font-size:14px;">
+                      <p style="margin:2px 0;">Email: <strong>{user.email}</strong></p>
+                      <p style="margin:2px 0;">Temporary password: <strong style="font-family:monospace;">{temp_password}</strong></p>
+                    </div>
+                    <a href="{login_url}" style="display:inline-block;padding:10px 20px;background:#2563eb;color:#ffffff;border-radius:8px;text-decoration:none;font-size:14px;">
+                      Log in to Jasmitan Invoice
+                    </a>
+                    <p style="margin-top:24px;font-size:12px;color:#94a3b8;">
+                      If you didn't request this, please contact your administrator immediately.
+                    </p>
+                  </div>""",
+            },
+            timeout=10,
+        )
+        if not resp.ok:
+            raise RuntimeError(f"{resp.status_code}: {resp.text[:300]}")
 
     def _friendly_ledgeriq_error(e: Exception) -> str:
         """Translate LedgerIQ's raw API error text into something a user can act on."""
