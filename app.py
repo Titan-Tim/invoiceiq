@@ -95,6 +95,13 @@ def create_app():
             if request.endpoint in ('wizard', 'dashboard') or request.path.startswith(WIZARD_PATH_PREFIXES):
                 return
         if session.get('user_id') or session.get('user_name'):
+            user_id = session.get('user_id')
+            if (user_id and not request.path.startswith('/api/')
+                    and request.endpoint not in ('settings_page', 'logout')):
+                user = db.session.get(User, user_id)
+                if user and user.must_change_password:
+                    flash('Please set a new password to continue.', 'warning')
+                    return redirect(url_for('settings_page'))
             return
         if request.path.startswith('/api/'):
             return jsonify({'error': 'Authentication required'}), 401
