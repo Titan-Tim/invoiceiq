@@ -934,7 +934,7 @@ document.getElementById('btn-sync-pos-sage').addEventListener('click', async () 
 });
 
 document.getElementById('btn-qbo-connect').addEventListener('click', () => {
-  window.location.href = '/auth/qbo/authorize';
+  window.location.href = window.APP_PREFIX + '/auth/qbo/authorize';
 });
 document.getElementById('btn-qbo-disconnect').addEventListener('click', async () => {
   await fetch('/api/auth/disconnect',{method:'POST'});
@@ -949,7 +949,7 @@ document.getElementById('btn-sync-pos-qbo').addEventListener('click', async () =
 });
 
 document.getElementById('btn-xero-connect').addEventListener('click', () => {
-  window.location.href = '/auth/xero/authorize';
+  window.location.href = window.APP_PREFIX + '/auth/xero/authorize';
 });
 document.getElementById('btn-xero-disconnect').addEventListener('click', async () => {
   await fetch('/api/auth/disconnect',{method:'POST'});

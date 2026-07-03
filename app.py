@@ -18,6 +18,26 @@ from src.approval import ApprovalWorkflow
 from src.connectors.factory import get_connector, get_system_name
 
 
+class _PrefixMiddleware:
+    """Serve the app correctly when a reverse proxy mounts it under a sub-path
+    (e.g. jasmitan.co.uk/invoice/…). The proxy forwards the full "/invoice/…"
+    path; we move the prefix into SCRIPT_NAME so url_for() and redirects emit
+    "/invoice/…" links, while routes still match on the bare path. A request
+    without the prefix (Render health checks, direct *.onrender.com access)
+    passes through unchanged, so the app stays usable at its root too."""
+
+    def __init__(self, wsgi_app, prefix):
+        self.wsgi_app = wsgi_app
+        self.prefix = prefix
+
+    def __call__(self, environ, start_response):
+        path = environ.get('PATH_INFO', '')
+        if path == self.prefix or path.startswith(self.prefix + '/'):
+            environ['SCRIPT_NAME'] = self.prefix + environ.get('SCRIPT_NAME', '')
+            environ['PATH_INFO'] = path[len(self.prefix):] or '/'
+        return self.wsgi_app(environ, start_response)
+
+
 def _run_migrations():
     """Lightweight in-place schema upgrades for installs created before a
     column existed — avoids requiring a separate migration tool for what is
@@ -34,6 +54,14 @@ def _run_migrations():
 
 def create_app():
     app = Flask(__name__)
+
+    # When deployed behind the Jasmitan portal proxy, URL_PREFIX is set to
+    # "/invoice" so the app serves under jasmitan.co.uk/invoice/…. Left unset
+    # for standalone / direct deployments.
+    url_prefix = os.environ.get('URL_PREFIX', '').rstrip('/')
+    if url_prefix:
+        app.wsgi_app = _PrefixMiddleware(app.wsgi_app, url_prefix)
+
     app.secret_key = os.environ.get('SECRET_KEY', 'ap-auto-change-in-prod-2024')
     if app.secret_key == 'ap-auto-change-in-prod-2024' and os.environ.get('DATABASE_URL'):
         app.logger.warning(

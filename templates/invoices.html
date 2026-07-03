@@ -105,7 +105,7 @@ function loadInvoices(page = 1) {
       }
 
       tbody.innerHTML = data.invoices.map(inv => `
-        <tr onclick="location.href='/invoices/${inv.id}'">
+        <tr onclick="location.href='${window.APP_PREFIX}/invoices/${inv.id}'">
           <td class="text-muted">${inv.id}</td>
           <td><strong>${inv.supplier_name || '—'}</strong>
             ${inv.requires_approval ? '<i class="bi bi-person-check text-warning ms-1" title="Requires approval"></i>' : ''}
@@ -231,7 +231,7 @@ async function uploadFiles(files) {
       item.el.classList.add('done');
       item.el.querySelector('.upload-status').innerHTML =
         `<i class="bi bi-check-circle text-success me-1"></i>
-         Processing… <a href="/invoices/${res.id}" class="ms-1">View</a>`;
+         Processing… <a href="${window.APP_PREFIX}/invoices/${res.id}" class="ms-1">View</a>`;
     }
   });
 

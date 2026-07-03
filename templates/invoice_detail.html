@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Invoice #{{ invoice.id }}{% endblock %}
 {% block page_title %}
-  <a href="/invoices" class="text-muted text-decoration-none me-2"><i class="bi bi-chevron-left"></i></a>
+  <a href="{{ url_for('invoices') }}" class="text-muted text-decoration-none me-2"><i class="bi bi-chevron-left"></i></a>
   Invoice Detail
 {% endblock %}
 
@@ -444,7 +444,7 @@ async function deleteInvoice() {
   if (!confirm('Delete this invoice permanently? This cannot be undone.')) return;
   const r = await fetch(`/api/invoices/${invoiceId}`, { method: 'DELETE' }).then(r => r.json());
   if (r.success) {
-    window.location.href = '/invoices';
+    window.location.href = window.APP_PREFIX + '/invoices';
   } else {
     showToast(r.error || 'Could not delete invoice', 'danger');
   }
