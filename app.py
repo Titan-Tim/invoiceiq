@@ -18,6 +18,26 @@ from src.approval import ApprovalWorkflow
 from src.connectors.factory import get_connector, get_system_name
 
 
+class _PrefixMiddleware:
+    """Serve the app correctly when a reverse proxy mounts it under a sub-path
+    (e.g. jasmitan.co.uk/invoice/…). The proxy forwards the full "/invoice/…"
+    path; we move the prefix into SCRIPT_NAME so url_for() and redirects emit
+    "/invoice/…" links, while routes still match on the bare path. A request
+    without the prefix (Render health checks, direct *.onrender.com access)
+    passes through unchanged, so the app stays usable at its root too."""
+
+    def __init__(self, wsgi_app, prefix):
+        self.wsgi_app = wsgi_app
+        self.prefix = prefix
+
+    def __call__(self, environ, start_response):
+        path = environ.get('PATH_INFO', '')
+        if path == self.prefix or path.startswith(self.prefix + '/'):
+            environ['SCRIPT_NAME'] = self.prefix + environ.get('SCRIPT_NAME', '')
+            environ['PATH_INFO'] = path[len(self.prefix):] or '/'
+        return self.wsgi_app(environ, start_response)
+
+
 def _run_migrations():
     """Lightweight in-place schema upgrades for installs created before a
     column existed — avoids requiring a separate migration tool for what is
@@ -34,6 +54,14 @@ def _run_migrations():
 
 def create_app():
     app = Flask(__name__)
+
+    # When deployed behind the Jasmitan portal proxy, URL_PREFIX is set to
+    # "/invoice" so the app serves under jasmitan.co.uk/invoice/…. Left unset
+    # for standalone / direct deployments.
+    url_prefix = os.environ.get('URL_PREFIX', '').rstrip('/')
+    if url_prefix:
+        app.wsgi_app = _PrefixMiddleware(app.wsgi_app, url_prefix)
+
     app.secret_key = os.environ.get('SECRET_KEY', 'ap-auto-change-in-prod-2024')
     if app.secret_key == 'ap-auto-change-in-prod-2024' and os.environ.get('DATABASE_URL'):
         app.logger.warning(
@@ -571,7 +599,7 @@ def create_app():
                 _post_to_ledgeriq(inv, settings)
             except Exception as e:
                 app.logger.error(f"LedgerIQ post failed for invoice {inv.id}: {e}")
-                note = f"Jasmitan Ledger post failed: {_friendly_ledgeriq_error(e)}"
+                note = f"Ledger-IQ post failed: {_friendly_ledgeriq_error(e)}"
                 inv.status_message = f"{inv.status_message} | {note}" if inv.status_message else note
 
         _recompute_push_failed(inv, settings)
@@ -630,7 +658,7 @@ def create_app():
         inv = db.get_or_404(Invoice, invoice_id)
         settings = load_settings()
         if not settings.get('integrations', {}).get('ledgeriq', {}).get('enabled'):
-            return jsonify({'error': 'Jasmitan Ledger integration is not enabled in Settings'}), 400
+            return jsonify({'error': 'Ledger-IQ integration is not enabled in Settings'}), 400
         try:
             _post_to_ledgeriq(inv, settings)
             inv.status_message = None
@@ -639,7 +667,7 @@ def create_app():
             return jsonify({'success': True, 'push_failed': inv.push_failed})
         except Exception as e:
             friendly = _friendly_ledgeriq_error(e)
-            inv.status_message = f"Jasmitan Ledger post failed: {friendly}"
+            inv.status_message = f"Ledger-IQ post failed: {friendly}"
             _recompute_push_failed(inv, settings)
             db.session.commit()
             return jsonify({'error': friendly}), 500
@@ -970,27 +998,27 @@ def create_app():
         if not api_key:
             app.logger.warning("RESEND_API_KEY not configured — skipping password reset email")
             return
-        login_url = f"{os.environ.get('APP_URL', 'https://invoice.jasmitan.co.uk')}/login"
+        login_url = f"{os.environ.get('APP_URL', 'https://invoice.sol-iq.co.uk')}/login"
         resp = requests.post(
             "https://api.resend.com/emails",
             headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
             json={
-                "from": os.environ.get('EMAIL_FROM', 'Jasmitan Invoice <noreply@smart-iq.co.uk>'),
+                "from": os.environ.get('EMAIL_FROM', 'Invoice-IQ <no-reply@sol-iq.co.uk>'),
                 "to": user.email,
-                "subject": "Your Jasmitan Invoice password has been reset",
+                "subject": "Your Invoice-IQ password has been reset",
                 "html": f"""
                   <div style="font-family:Arial,Helvetica,sans-serif;color:#1e293b;max-width:480px;margin:0 auto;">
                     <h2 style="margin:0 0 12px;">Password reset, {user.name}</h2>
                     <p style="font-size:14px;color:#475569;">
-                      You (or someone on your behalf) requested a password reset for Jasmitan Invoice.
+                      You (or someone on your behalf) requested a password reset for Invoice-IQ.
                       Use the temporary password below to log in — you'll be asked to set your own password right away.
                     </p>
                     <div style="margin:20px 0;padding:16px;background:#f8fafc;border-radius:8px;font-size:14px;">
                       <p style="margin:2px 0;">Email: <strong>{user.email}</strong></p>
                       <p style="margin:2px 0;">Temporary password: <strong style="font-family:monospace;">{temp_password}</strong></p>
                     </div>
-                    <a href="{login_url}" style="display:inline-block;padding:10px 20px;background:#2563eb;color:#ffffff;border-radius:8px;text-decoration:none;font-size:14px;">
-                      Log in to Jasmitan Invoice
+                    <a href="{login_url}" style="display:inline-block;padding:10px 20px;background:#F5A623;color:#171A2B;font-weight:600;border-radius:8px;text-decoration:none;font-size:14px;">
+                      Log in to Invoice-IQ
                     </a>
                     <p style="margin-top:24px;font-size:12px;color:#94a3b8;">
                       If you didn't request this, please contact your administrator immediately.

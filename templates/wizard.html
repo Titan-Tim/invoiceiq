@@ -3,11 +3,28 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Setup — Jasmitan Invoice</title>
+  <title>Setup — Invoice-IQ</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <script>
+    // Path prefix when served behind the portal proxy (e.g. "/invoice"); "" standalone.
+    window.APP_PREFIX = "{{ request.script_root }}";
+    // Auto-prefix root-absolute fetch() calls (/api/…) so they resolve under the proxy path.
+    (function () {
+      var p = window.APP_PREFIX;
+      if (!p) return;
+      var orig = window.fetch.bind(window);
+      window.fetch = function (input, init) {
+        if (typeof input === 'string' && input.charAt(0) === '/'
+            && input.charAt(1) !== '/' && input.lastIndexOf(p + '/', 0) !== 0) {
+          input = p + input;
+        }
+        return orig(input, init);
+      };
+    })();
+  </script>
   <style>
-    :root { --accent:#3b82f6; --success:#10b981; }
+    :root { --accent:#E8722C; --success:#10b981; }
     * { box-sizing: border-box; }
     body { background:#f1f5f9; min-height:100vh; font-family:'Segoe UI',system-ui,sans-serif; margin:0; }
 
@@ -86,16 +103,14 @@
 <div class="wiz-page">
 
   <!-- Brand -->
-  <a href="/" class="wiz-brand">
-    <svg width="34" height="34" viewBox="0 0 30 30" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <rect width="30" height="30" rx="7" fill="#3b82f6"/>
-      <rect x="6" y="8"  width="18" height="2.5" rx="1.25" fill="white"/>
-      <rect x="6" y="13" width="13" height="2.5" rx="1.25" fill="rgba(255,255,255,0.75)"/>
-      <rect x="6" y="18" width="9"  height="2.5" rx="1.25" fill="rgba(255,255,255,0.5)"/>
-      <circle cx="22.5" cy="22.5" r="6" fill="#10b981"/>
-      <polyline points="19,22.5 21.5,25 26,20" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <a href="{{ url_for('dashboard') }}" class="wiz-brand">
+    <svg width="34" height="34" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <defs><linearGradient id="wiz-sun" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#FFC24B"/><stop offset="100%" stop-color="#E8722C"/></linearGradient></defs>
+      <line x1="3" y1="30" x2="37" y2="30" stroke="#171A2B" stroke-width="2.4" stroke-linecap="round"/>
+      <path d="M8 30a12 12 0 0 1 24 0" fill="url(#wiz-sun)"/>
+      <g stroke="#F5A623" stroke-width="2.2" stroke-linecap="round"><line x1="20" y1="4" x2="20" y2="11"/><line x1="6" y1="12" x2="10.5" y2="15.5"/><line x1="34" y1="12" x2="29.5" y2="15.5"/></g>
     </svg>
-    <span class="brand-text">Invoice<strong>IQ</strong></span>
+    <span class="brand-text">Invoice<strong>-IQ</strong></span>
   </a>
 
   <!-- Step bar -->
@@ -131,7 +146,7 @@
 
     <!-- ═══════════════ STEP 1 : WELCOME ═══════════════ -->
     <div class="step-panel active" id="sp-1">
-      <div class="step-title">Welcome to Jasmitan Invoice 👋</div>
+      <div class="step-title">Welcome to Invoice-IQ 👋</div>
       <p class="step-desc">Let's get your accounts payable automation up and running. This will take about 5 minutes and you can always change these settings later.</p>
       <div class="row g-3">
         <div class="col-sm-8">
@@ -151,7 +166,7 @@
       <hr class="my-4">
       <div class="step-desc mb-3" style="margin-bottom:0;">
         <strong style="color:#0f172a;">Create your admin account</strong>
-        <p class="mb-0 mt-1">This is what you'll use to sign in to Jasmitan Invoice going forward.</p>
+        <p class="mb-0 mt-1">This is what you'll use to sign in to Invoice-IQ going forward.</p>
       </div>
       <div class="row g-3 mt-2">
         <div class="col-sm-6">
@@ -183,7 +198,7 @@
     <!-- ═══════════════ STEP 2 : FINANCE SYSTEM ═══════════════ -->
     <div class="step-panel" id="sp-2">
       <div class="step-title">Which accounting software do you use?</div>
-      <p class="step-desc">Jasmitan Invoice will connect directly to your finance system to sync purchase orders and post approved invoices.</p>
+      <p class="step-desc">Invoice-IQ will connect directly to your finance system to sync purchase orders and post approved invoices.</p>
 
       <div id="sys-cards">
         <label class="sys-card" id="sc-qbo">
@@ -312,7 +327,7 @@
       <!-- Sage panel -->
       <div id="cfg-sage" class="sys-panel d-none">
         <div class="step-title">Configure Sage 50</div>
-        <p class="step-desc">Jasmitan Invoice connects to Sage via the SDO (Sage Data Object) API. Sage 50 must be installed on this PC.</p>
+        <p class="step-desc">Invoice-IQ connects to Sage via the SDO (Sage Data Object) API. Sage 50 must be installed on this PC.</p>
         <div class="row g-3">
           <div class="col-12">
             <label class="form-label">Sage Data Path</label>
@@ -370,7 +385,7 @@
     <!-- ═══════════════ STEP 4 : EMAIL ═══════════════ -->
     <div class="step-panel" id="sp-4">
       <div class="step-title">Connect your invoice mailbox</div>
-      <p class="step-desc">Jasmitan Invoice monitors an O365 mailbox for incoming invoice emails. You'll need an Azure App Registration with <code>Mail.Read</code> and <code>Mail.ReadWrite</code> permissions.</p>
+      <p class="step-desc">Invoice-IQ monitors an O365 mailbox for incoming invoice emails. You'll need an Azure App Registration with <code>Mail.Read</code> and <code>Mail.ReadWrite</code> permissions.</p>
       <div class="row g-3">
         <div class="col-sm-6">
           <label class="form-label">Tenant ID</label>
@@ -409,7 +424,7 @@
     <!-- ═══════════════ STEP 5 : CLAUDE AI ═══════════════ -->
     <div class="step-panel" id="sp-5">
       <div class="step-title">Add your Claude AI key</div>
-      <p class="step-desc">Jasmitan Invoice uses Claude to read and extract data from invoice PDFs and images. Get your API key from <a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a> — a free tier is available to get started.</p>
+      <p class="step-desc">Invoice-IQ uses Claude to read and extract data from invoice PDFs and images. Get your API key from <a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a> — a free tier is available to get started.</p>
       <div class="row g-3">
         <div class="col-12">
           <label class="form-label fw-semibold">Claude API Key</label>
@@ -440,13 +455,13 @@
     <div class="step-panel" id="sp-done">
       <div class="done-wrap">
         <div class="done-icon"><i class="bi bi-check2-circle"></i></div>
-        <div class="done-title">Jasmitan Invoice is ready!</div>
+        <div class="done-title">Invoice-IQ is ready!</div>
         <p class="done-sub">Your setup is complete. Head to the dashboard to start processing invoices.</p>
-        <a href="/" class="btn btn-primary btn-lg px-5">
+        <a href="{{ url_for('dashboard') }}" class="btn btn-primary btn-lg px-5">
           <i class="bi bi-speedometer2 me-2"></i>Go to Dashboard
         </a>
         <div class="mt-3">
-          <a href="/settings" class="text-muted small">Revisit settings anytime</a>
+          <a href="{{ url_for('settings_page') }}" class="text-muted small">Revisit settings anytime</a>
         </div>
       </div>
     </div>
@@ -503,7 +518,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!id || !sec) { alert('Please enter your Client ID and Client Secret first.'); return; }
     // Save credentials first, then redirect to OAuth
     await partialSave({ finance_system: 'qbo', qbo: { client_id: id, client_secret: sec, environment: env, redirect_uri: uri } });
-    window.location.href = '/auth/qbo/authorize?from=wizard';
+    window.location.href = window.APP_PREFIX + '/auth/qbo/authorize?from=wizard';
   });
 
   // Xero connect button
@@ -513,7 +528,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const uri = document.getElementById('w-xero-uri').value;
     if (!id || !sec) { alert('Please enter your Client ID and Client Secret first.'); return; }
     await partialSave({ finance_system: 'xero', xero: { client_id: id, client_secret: sec, redirect_uri: uri } });
-    window.location.href = '/auth/xero/authorize?from=wizard';
+    window.location.href = window.APP_PREFIX + '/auth/xero/authorize?from=wizard';
   });
 
   // Sage test button
@@ -662,7 +677,7 @@ function renderAuthSuccess(sys) {
   const reconnect = document.createElement('button');
   reconnect.className = 'btn btn-outline-secondary btn-sm';
   reconnect.innerHTML = '<i class="bi bi-arrow-repeat me-1"></i>Reconnect';
-  reconnect.onclick = () => { window.location.href = `/auth/${sys}/authorize?from=wizard`; };
+  reconnect.onclick = () => { window.location.href = `${window.APP_PREFIX}/auth/${sys}/authorize?from=wizard`; };
   box.querySelector('.d-flex').appendChild(reconnect);
 }
 

@@ -21,6 +21,9 @@ services:
         value: /var/data/invoices
       - key: PYTHON_VERSION
         value: 3.12.2
+      # Served behind the Jasmitan portal proxy at jasmitan.co.uk/invoice
+      - key: URL_PREFIX
+        value: /invoice
     disk:
       name: invoiceiq-data
       mountPath: /var/data

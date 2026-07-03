@@ -350,7 +350,7 @@
         </div>
         <div class="col-md-8">
           <label class="form-label">LedgerIQ base URL</label>
-          <input type="text" class="form-control font-monospace" id="ledgeriq-base-url" placeholder="https://jasmitan.co.uk/ledger">
+          <input type="text" class="form-control font-monospace" id="ledgeriq-base-url" placeholder="https://ledger.sol-iq.co.uk">
         </div>
         <div class="col-md-8">
           <label class="form-label">API key</label>
@@ -387,7 +387,7 @@
       <div class="d-flex align-items-center justify-content-between mb-3">
         <div>
           <h6 class="mb-1">Users</h6>
-          <p class="text-muted small mb-0">People who can sign in to Jasmitan Invoice.</p>
+          <p class="text-muted small mb-0">People who can sign in to Invoice-IQ.</p>
         </div>
         <button class="btn btn-primary btn-sm" id="btn-add-user">
           <i class="bi bi-plus me-1"></i>Add User
@@ -443,7 +443,7 @@
     <!-- ======================== MY ACCOUNT ======================== -->
     <div class="settings-section d-none" id="tab-account">
       <h6>Change Password</h6>
-      <p class="text-muted small mb-3">Update the password you use to sign in to Jasmitan Invoice.</p>
+      <p class="text-muted small mb-3">Update the password you use to sign in to Invoice-IQ.</p>
       <div class="row g-3" style="max-width:480px;">
         <div class="col-12">
           <label class="form-label">Current Password</label>
@@ -934,7 +934,7 @@ document.getElementById('btn-sync-pos-sage').addEventListener('click', async () 
 });
 
 document.getElementById('btn-qbo-connect').addEventListener('click', () => {
-  window.location.href = '/auth/qbo/authorize';
+  window.location.href = window.APP_PREFIX + '/auth/qbo/authorize';
 });
 document.getElementById('btn-qbo-disconnect').addEventListener('click', async () => {
   await fetch('/api/auth/disconnect',{method:'POST'});
@@ -949,7 +949,7 @@ document.getElementById('btn-sync-pos-qbo').addEventListener('click', async () =
 });
 
 document.getElementById('btn-xero-connect').addEventListener('click', () => {
-  window.location.href = '/auth/xero/authorize';
+  window.location.href = window.APP_PREFIX + '/auth/xero/authorize';
 });
 document.getElementById('btn-xero-disconnect').addEventListener('click', async () => {
   await fetch('/api/auth/disconnect',{method:'POST'});

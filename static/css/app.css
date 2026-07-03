@@ -1,18 +1,23 @@
 /* ============================================================
-   Jasmitan Invoice — Global Styles
+   Invoice-IQ — Global Styles
    ============================================================ */
 
+@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700&family=Inter:wght@400;500;600;700&display=swap');
+
+/* Sol-IQ brand tokens (rebrand brief §4; canonical source: sol-iq-hub repo) */
 :root {
   --sidebar-width: 230px;
-  --sidebar-bg: #1e293b;
-  --sidebar-hover: #334155;
-  --sidebar-active: #3b82f6;
+  --sidebar-bg: #171A2B;       /* ink */
+  --sidebar-hover: #3A3F58;    /* ink-soft */
+  --sidebar-active: #E8722C;   /* ember */
   --topbar-h: 60px;
-  --accent: #3b82f6;
+  --accent: #E8722C;           /* ember */
+  --accent-tint: #FFF4E1;      /* pale dawn */
+  --sol: #F5A623;              /* sun amber */
   --success: #10b981;
   --warning: #f59e0b;
   --danger: #ef4444;
-  --body-bg: #f1f5f9;
+  --body-bg: #FBF7F0;          /* paper */
   --card-bg: #ffffff;
   --text-muted: #64748b;
 }
@@ -20,7 +25,7 @@
 /* ---- Layout ---- */
 
 * { box-sizing: border-box; }
-body { background: var(--body-bg); font-family: 'Segoe UI', system-ui, sans-serif; margin: 0; }
+body { background: var(--body-bg); font-family: 'Inter', 'Segoe UI', system-ui, sans-serif; margin: 0; }
 
 #app-wrapper { min-height: 100vh; }
 
@@ -48,8 +53,8 @@ body { background: var(--body-bg); font-family: 'Segoe UI', system-ui, sans-seri
   border-bottom: 1px solid rgba(255,255,255,0.08);
 }
 .sidebar-brand i { font-size: 1.3rem; color: var(--accent); }
-.brand-text { font-size: 1.1rem; font-weight: 600; color: #e2e8f0; letter-spacing: -0.01em; }
-.brand-text strong { color: #60a5fa; font-weight: 800; }
+.brand-text { font-family: 'Bricolage Grotesque', 'Inter', sans-serif; font-size: 1.1rem; font-weight: 700; color: #ffffff; letter-spacing: -0.02em; }
+.brand-text strong { color: var(--sol); font-weight: 800; }
 
 .sidebar-section-label {
   font-size: 0.65rem;
@@ -77,14 +82,14 @@ body { background: var(--body-bg); font-family: 'Segoe UI', system-ui, sans-seri
 .sidebar-system-badge {
   margin: 0 10px 6px;
   padding: 4px 10px;
-  background: rgba(59,130,246,0.15);
-  color: #93c5fd;
+  background: rgba(245,166,35,0.14);
+  color: #FFC24B;
   border-radius: 6px;
   font-size: 0.72rem;
   font-weight: 600;
   letter-spacing: 0.03em;
   text-align: center;
-  border: 1px solid rgba(59,130,246,0.25);
+  border: 1px solid rgba(245,166,35,0.28);
 }
 
 .sidebar-footer {
@@ -321,7 +326,7 @@ body { background: var(--body-bg); font-family: 'Segoe UI', system-ui, sans-seri
   font-size: 0.875rem;
 }
 .settings-nav .nav-link.active {
-  background: #eff6ff;
+  background: var(--accent-tint);
   color: var(--accent);
   font-weight: 600;
 }
@@ -347,7 +352,7 @@ body { background: var(--body-bg); font-family: 'Segoe UI', system-ui, sans-seri
 }
 .login-logo {
   width: 64px; height: 64px;
-  background: var(--accent);
+  background: #FFE9C7;
   border-radius: 16px;
   display: flex; align-items: center; justify-content: center;
   font-size: 1.8rem;
@@ -398,12 +403,12 @@ body { background: var(--body-bg); font-family: 'Segoe UI', system-ui, sans-seri
 .drop-zone:hover,
 .drop-zone.drag-over {
   border-color: var(--accent);
-  background: #eff6ff;
+  background: var(--accent-tint);
 }
-.drop-zone.drag-over { box-shadow: 0 0 0 4px rgba(59,130,246,.12); }
+.drop-zone.drag-over { box-shadow: 0 0 0 4px rgba(245,166,35,.18); }
 .drop-zone-icon {
   width: 44px; height: 44px; border-radius: 10px;
-  background: #eff6ff; color: var(--accent);
+  background: var(--accent-tint); color: var(--accent);
   display: flex; align-items: center; justify-content: center;
   font-size: 1.3rem; flex-shrink: 0;
   transition: background .2s;
@@ -491,3 +496,21 @@ body { background: var(--body-bg); font-family: 'Segoe UI', system-ui, sans-seri
   .content-body { padding-left: 12px; padding-right: 12px; }
 }
 .discrepancy-item { background: #fff7ed; border-left: 3px solid var(--warning); padding: 6px 10px; border-radius: 0 6px 6px 0; font-size: 0.8rem; margin-bottom: 4px; }
+
+/* ---- Bootstrap accent overrides (Sol-IQ) ---- */
+
+.btn-primary {
+  --bs-btn-bg: #F5A623; --bs-btn-border-color: #F5A623; --bs-btn-color: #171A2B;
+  --bs-btn-hover-bg: #D6871A; --bs-btn-hover-border-color: #D6871A; --bs-btn-hover-color: #171A2B;
+  --bs-btn-active-bg: #D6871A; --bs-btn-active-border-color: #D6871A; --bs-btn-active-color: #171A2B;
+  --bs-btn-disabled-bg: #F5A623; --bs-btn-disabled-border-color: #F5A623; --bs-btn-disabled-color: #171A2B;
+  font-weight: 600;
+}
+.btn-outline-primary {
+  --bs-btn-color: #E8722C; --bs-btn-border-color: #E8722C;
+  --bs-btn-hover-bg: #E8722C; --bs-btn-hover-border-color: #E8722C; --bs-btn-hover-color: #fff;
+  --bs-btn-active-bg: #E8722C; --bs-btn-active-border-color: #E8722C; --bs-btn-active-color: #fff;
+}
+.text-primary { color: #E8722C !important; }
+a { color: #C95E1F; }
+a:hover { color: #E8722C; }
