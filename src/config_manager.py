@@ -57,7 +57,7 @@ DEFAULT_SETTINGS = {
     "integrations": {
         "ledgeriq": {
             "enabled":      False,
-            "api_base_url": "https://jasmitan.co.uk/ledger",
+            "api_base_url": "https://ledger.sol-iq.co.uk",
             "api_key":      ""
         }
     },

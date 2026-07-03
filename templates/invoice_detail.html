@@ -425,7 +425,7 @@ function renderActions(data) {
   }
   if (['matched','partial_match','approved'].includes(status)) {
     html += `<button class="btn btn-primary" onclick="postToFinance()"><i class="bi bi-cloud-upload me-1"></i>Post to Finance</button>`;
-    html += `<button class="btn btn-outline-primary" onclick="postToLedgerIQ()"><i class="bi bi-journal-text me-1"></i>Post to Jasmitan Ledger</button>`;
+    html += `<button class="btn btn-outline-primary" onclick="postToLedgerIQ()"><i class="bi bi-journal-text me-1"></i>Post to Ledger-IQ</button>`;
   }
   html += `<button class="btn btn-outline-danger" onclick="deleteInvoice()"><i class="bi bi-trash me-1"></i>Delete</button>`;
   btns.innerHTML = html;
@@ -434,7 +434,7 @@ function renderActions(data) {
   if (data.push_failed) {
     banner.style.display = '';
     document.getElementById('needs-attention-text').textContent =
-      data.status_message || 'A push to Finance or Jasmitan Ledger failed — see Activity Log below.';
+      data.status_message || 'A push to Finance or Ledger-IQ failed — see Activity Log below.';
   } else {
     banner.style.display = 'none';
   }
@@ -504,7 +504,7 @@ async function postToLedgerIQ() {
   const btn = document.querySelector('[onclick="postToLedgerIQ()"]');
   if (btn) { btn.disabled=true; btn.innerHTML='<i class="bi bi-arrow-repeat spinning me-1"></i>Posting…'; }
   const r = await fetch(`/api/invoices/${invoiceId}/post-to-ledgeriq`,{method:'POST'}).then(r=>r.json());
-  if (r.success) { showToast('Posted to Jasmitan Ledger','success'); loadInvoice(); }
+  if (r.success) { showToast('Posted to Ledger-IQ','success'); loadInvoice(); }
   else { showToast(r.error||'Post failed','danger'); loadInvoice(); }
 }
 
