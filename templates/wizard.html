@@ -242,6 +242,16 @@
           </div>
           <div class="sys-check"><i class="bi bi-check"></i></div>
         </label>
+
+        <label class="sys-card" id="sc-ledgeriq">
+          <input type="radio" name="w-sys" value="ledgeriq" class="d-none">
+          <i class="bi bi-journal-check sys-icon"></i>
+          <div class="sys-info">
+            <div class="sys-name">Ledger-IQ</div>
+            <div class="sys-note">Sol-IQ bookkeeping — connect via API key</div>
+          </div>
+          <div class="sys-check"><i class="bi bi-check"></i></div>
+        </label>
       </div>
 
       <div class="wiz-nav">
@@ -369,6 +379,28 @@
             <i class="bi bi-plug me-1"></i>Test Connection
           </button>
           <span id="sage-test-wiz-result" class="small"></span>
+        </div>
+      </div>
+
+      <!-- Ledger-IQ panel -->
+      <div id="cfg-ledgeriq" class="sys-panel d-none">
+        <div class="step-title">Connect Ledger-IQ</div>
+        <p class="step-desc">Invoice-IQ reads purchase orders and suppliers from your Ledger-IQ organisation and posts approved invoices back to it. Create an API key in Ledger-IQ under Settings → Organisation.</p>
+        <div class="row g-3 mt-1">
+          <div class="col-sm-6">
+            <label class="form-label">Ledger-IQ URL</label>
+            <input type="text" class="form-control font-monospace" id="w-ledgeriq-url" placeholder="https://ledger.sol-iq.co.uk">
+          </div>
+          <div class="col-sm-6">
+            <label class="form-label">Organisation API Key</label>
+            <input type="password" class="form-control font-monospace" id="w-ledgeriq-key" placeholder="Bearer key from Ledger-IQ">
+          </div>
+        </div>
+        <div class="mt-3 d-flex gap-2 align-items-center">
+          <button class="btn btn-outline-primary btn-sm" id="btn-ledgeriq-test-wiz">
+            <i class="bi bi-plug me-1"></i>Test Connection
+          </button>
+          <span id="ledgeriq-test-wiz-result" class="small"></span>
         </div>
       </div>
 
@@ -570,6 +602,20 @@ document.addEventListener('DOMContentLoaded', () => {
       sdo_version: document.getElementById('w-sage-sdo').value,
       username:    document.getElementById('w-sage-user').value,
       password:    document.getElementById('w-sage-pass').value,
+    }});
+    const r = await fetch('/api/settings/test-connection', { method: 'POST' }).then(r => r.json());
+    res.innerHTML = r.success
+      ? `<span class="text-success"><i class="bi bi-check-circle me-1"></i>${r.message}</span>`
+      : `<span class="text-danger"><i class="bi bi-x-circle me-1"></i>${r.message}</span>`;
+  });
+
+  // Ledger-IQ test button
+  document.getElementById('btn-ledgeriq-test-wiz').addEventListener('click', async () => {
+    const res = document.getElementById('ledgeriq-test-wiz-result');
+    res.innerHTML = '<i class="bi bi-arrow-repeat spinning"></i>';
+    await partialSave({ finance_system: 'ledgeriq', ledgeriq: {
+      api_base_url: document.getElementById('w-ledgeriq-url').value.trim(),
+      api_key:      document.getElementById('w-ledgeriq-key').value.trim(),
     }});
     const r = await fetch('/api/settings/test-connection', { method: 'POST' }).then(r => r.json());
     res.innerHTML = r.success
@@ -806,7 +852,7 @@ async function loadSavedSettings() {
 
     // Pre-select saved system
     const sys = s.finance_system || '';
-    if (sys && ['qbo','xero','sage'].includes(sys)) {
+    if (sys && ['qbo','xero','sage','ledgeriq'].includes(sys)) {
       const card = document.querySelector(`[name="w-sys"][value="${sys}"]`);
       if (card) {
         card.checked = true;
@@ -836,6 +882,10 @@ async function loadSavedSettings() {
     if (s.sage?.data_path)    document.getElementById('w-sage-path').value  = s.sage.data_path;
     if (s.sage?.sdo_version)  document.getElementById('w-sage-sdo').value   = s.sage.sdo_version;
     if (s.sage?.username)     document.getElementById('w-sage-user').value  = s.sage.username;
+
+    // Ledger-IQ fields
+    document.getElementById('w-ledgeriq-url').value = s.ledgeriq?.api_base_url || 'https://ledger.sol-iq.co.uk';
+    if (s.ledgeriq?.api_key)  document.getElementById('w-ledgeriq-key').value = s.ledgeriq.api_key;
 
     // Email fields
     if (s.email?.tenant_id)   document.getElementById('w-email-tenant').value  = s.email.tenant_id;

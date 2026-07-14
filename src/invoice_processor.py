@@ -97,9 +97,6 @@ def process_new_emails() -> dict:
                 stats['errors'] += 1
                 continue
 
-            # Resolve vendor reference in finance system
-            _resolve_vendor_ref(invoice)
-
             # Match PO (skipped entirely if this business doesn't use POs)
             if settings.get('po_source', {}).get('enabled', True):
                 try:
@@ -127,6 +124,10 @@ def process_new_emails() -> dict:
             else:
                 invoice.status = 'matched'
                 db.session.commit()
+
+            # Resolve vendor ref after matching, so a "supplier not found" note
+            # isn't overwritten by the match status.
+            _resolve_vendor_ref(invoice)
 
             # Approval routing
             if workflow.check_requires_approval(invoice):
@@ -185,8 +186,6 @@ def process_uploaded_invoice(invoice_id: int) -> None:
         db.session.commit()
         return
 
-    _resolve_vendor_ref(invoice)
-
     # Match PO (skipped entirely if this business doesn't use POs)
     if settings.get('po_source', {}).get('enabled', True):
         try:
@@ -213,6 +212,10 @@ def process_uploaded_invoice(invoice_id: int) -> None:
     else:
         invoice.status = 'matched'
         db.session.commit()
+
+    # Resolve vendor ref after matching, so a "supplier not found" note
+    # isn't overwritten by the match status.
+    _resolve_vendor_ref(invoice)
 
     # Approval routing
     if workflow.check_requires_approval(invoice):
@@ -349,14 +352,24 @@ def _apply_extraction(invoice: Invoice, data: dict):
 
 
 def _resolve_vendor_ref(invoice: Invoice):
-    """Look up the vendor/supplier ref in the finance system by name."""
+    """Look up the vendor/supplier ref in the finance system by name.
+
+    When the supplier can't be found, leave a note on the invoice so the gap is
+    visible before anyone tries to post it (the post step also blocks with a
+    clearer error). Runs after PO matching so this note isn't overwritten.
+    """
     if not invoice.supplier_name:
         return
     try:
-        from src.connectors.factory import get_connector
+        from src.connectors.factory import get_connector, get_system_name
         ref = get_connector().find_vendor(invoice.supplier_name)
         if ref:
             invoice.supplier_ref = ref
+        else:
+            note = f"Supplier '{invoice.supplier_name}' not found in {get_system_name()}"
+            invoice.status_message = (
+                f"{invoice.status_message} · {note}" if invoice.status_message else note
+            )
         db.session.commit()
     except Exception:
         pass

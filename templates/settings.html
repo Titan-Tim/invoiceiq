@@ -46,7 +46,7 @@
 
       <!-- System selector -->
       <div class="d-flex gap-3 mb-4 flex-wrap">
-        {% for key, label, icon in [('sage','Sage 50','bi-hdd'), ('qbo','QuickBooks Online','bi-cloud'), ('xero','Xero','bi-x-circle')] %}
+        {% for key, label, icon in [('sage','Sage 50','bi-hdd'), ('qbo','QuickBooks Online','bi-cloud'), ('xero','Xero','bi-x-circle'), ('ledgeriq','Ledger-IQ','bi-journal-check')] %}
         <label class="system-card" id="sys-card-{{ key }}">
           <input type="radio" name="finance-system" value="{{ key }}" class="d-none">
           <i class="bi {{ icon }} fs-2"></i>
@@ -206,6 +206,34 @@
             <i class="bi bi-arrow-repeat me-1"></i>Sync POs from Xero
           </button>
           <span id="xero-sync-result" class="small align-self-center"></span>
+        </div>
+      </div>
+
+      <!-- Ledger-IQ config -->
+      <div id="config-ledgeriq" class="system-config d-none">
+        <div class="alert alert-info d-flex gap-2 small mb-3">
+          <i class="bi bi-info-circle-fill flex-shrink-0 mt-1"></i>
+          <div>Invoice-IQ reads purchase orders &amp; suppliers from your Ledger-IQ organisation and posts approved
+            invoices back to it. Create an API key in Ledger-IQ under <strong>Settings → Organisation</strong>.</div>
+        </div>
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label class="form-label">Ledger-IQ URL</label>
+            <input type="text" class="form-control font-monospace" id="ledgeriq-fs-url" placeholder="https://ledger.sol-iq.co.uk">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Organisation API Key</label>
+            <input type="password" class="form-control font-monospace" id="ledgeriq-fs-key" placeholder="Bearer key from Ledger-IQ">
+          </div>
+        </div>
+        <div class="mt-3 d-flex gap-2 align-items-center flex-wrap">
+          <button class="btn btn-outline-primary btn-sm" id="btn-test-ledgeriq">
+            <i class="bi bi-plug me-1"></i>Test Connection
+          </button>
+          <button class="btn btn-outline-secondary btn-sm" id="btn-sync-pos-ledgeriq">
+            <i class="bi bi-arrow-repeat me-1"></i>Sync POs from Ledger-IQ
+          </button>
+          <span id="ledgeriq-test-result" class="small align-self-center"></span>
         </div>
       </div>
     </div>
@@ -575,6 +603,10 @@ async function loadSettings() {
   document.getElementById('xero-redirect-uri').value     =
     xeroSavedUri.startsWith(window.location.origin) ? xeroSavedUri : (window.location.origin + '/auth/xero/callback');
 
+  // Ledger-IQ (finance system)
+  document.getElementById('ledgeriq-fs-url').value = settings.ledgeriq?.api_base_url || 'https://ledger.sol-iq.co.uk';
+  document.getElementById('ledgeriq-fs-key').value = settings.ledgeriq?.api_key || '';
+
   // Email
   document.getElementById('email-tenant-id').value   = settings.email?.tenant_id || '';
   document.getElementById('email-client-id').value   = settings.email?.client_id || '';
@@ -901,6 +933,10 @@ document.getElementById('btn-save').addEventListener('click', async () => {
       redirect_uri:            document.getElementById('xero-redirect-uri').value,
       default_expense_account: document.getElementById('xero-expense-account').value,
     },
+    ledgeriq: {
+      api_base_url: document.getElementById('ledgeriq-fs-url').value,
+      api_key:      document.getElementById('ledgeriq-fs-key').value,
+    },
     po_source: {
       enabled:     document.getElementById('po-matching-enabled').checked,
       type:        poType,
@@ -978,6 +1014,33 @@ document.getElementById('btn-sync-pos-xero').addEventListener('click', async () 
   const el = document.getElementById('xero-sync-result');
   el.innerHTML = r.success ? `<span class="text-success">Synced ${r.synced} POs</span>`
                            : `<span class="text-danger">${r.error}</span>`;
+});
+
+// Ledger-IQ: persist URL + key (and select it as the finance system) before testing/syncing.
+async function saveLedgerIQConfig() {
+  await fetch('/api/settings/partial', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ finance_system: 'ledgeriq', ledgeriq: {
+      api_base_url: document.getElementById('ledgeriq-fs-url').value.trim(),
+      api_key:      document.getElementById('ledgeriq-fs-key').value.trim(),
+    }}),
+  });
+}
+document.getElementById('btn-test-ledgeriq').addEventListener('click', async () => {
+  const result = document.getElementById('ledgeriq-test-result');
+  result.innerHTML = '<i class="bi bi-arrow-repeat spinning"></i>';
+  await saveLedgerIQConfig();
+  const r = await fetch('/api/settings/test-connection',{method:'POST'}).then(r=>r.json());
+  result.innerHTML = r.success ? `<span class="text-success"><i class="bi bi-check-circle me-1"></i>${r.message}</span>`
+                               : `<span class="text-danger"><i class="bi bi-x-circle me-1"></i>${r.message}</span>`;
+});
+document.getElementById('btn-sync-pos-ledgeriq').addEventListener('click', async () => {
+  const btn = document.getElementById('btn-sync-pos-ledgeriq');
+  btn.disabled=true; btn.innerHTML='<i class="bi bi-arrow-repeat spinning me-1"></i>Syncing…';
+  await saveLedgerIQConfig();
+  const r = await fetch('/api/finance/sync-pos',{method:'POST'}).then(r=>r.json());
+  btn.disabled=false; btn.innerHTML='<i class="bi bi-arrow-repeat me-1"></i>Sync POs from Ledger-IQ';
+  if (r.success) showToast(`Synced ${r.synced} POs from Ledger-IQ`,'success'); else showToast(r.error,'danger');
 });
 
 document.getElementById('btn-test-email').addEventListener('click', async () => {

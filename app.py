@@ -606,7 +606,11 @@ def create_app():
             except Exception as e:
                 inv.status_message = f"Approved — finance post failed: {e}"
 
-        if settings.get('integrations', {}).get('ledgeriq', {}).get('enabled'):
+        # The mirror-to-LedgerIQ integration is for when a *different* system
+        # (Sage/QBO/Xero) is primary. When Ledger-IQ IS the finance system the
+        # connector already posted above — don't post a second time.
+        if (settings.get('integrations', {}).get('ledgeriq', {}).get('enabled')
+                and settings.get('finance_system') != 'ledgeriq'):
             try:
                 _post_to_ledgeriq(inv, settings)
             except Exception as e:
@@ -804,6 +808,7 @@ def create_app():
         _mask(safe, ('sage',  'password'))
         _mask(safe, ('qbo',   'client_secret'))
         _mask(safe, ('xero',  'client_secret'))
+        _mask(safe, ('ledgeriq', 'api_key'))
         _mask(safe, ('claude','api_key'))
         if safe.get('integrations', {}).get('ledgeriq', {}).get('api_key'):
             safe['integrations']['ledgeriq']['api_key'] = '••••••••'
@@ -816,7 +821,7 @@ def create_app():
         # Preserve masked values
         for path in (('email', 'client_secret'), ('sage', 'password'),
                      ('qbo', 'client_secret'), ('xero', 'client_secret'),
-                     ('claude', 'api_key')):
+                     ('ledgeriq', 'api_key'), ('claude', 'api_key')):
             if new.get(path[0], {}).get(path[1]) == '••••••••':
                 new[path[0]][path[1]] = current[path[0]].get(path[1], '')
         if new.get('integrations', {}).get('ledgeriq', {}).get('api_key') == '••••••••':
@@ -837,7 +842,7 @@ def create_app():
         # Preserve masked secret placeholders
         for path in (('email', 'client_secret'), ('sage', 'password'),
                      ('qbo', 'client_secret'), ('xero', 'client_secret'),
-                     ('claude', 'api_key')):
+                     ('ledgeriq', 'api_key'), ('claude', 'api_key')):
             if current.get(path[0], {}).get(path[1]) == '••••••••':
                 current[path[0]][path[1]] = ''
         _sync_approver_users(current)
@@ -1090,14 +1095,18 @@ def create_app():
             )
 
         ref = connector.post_invoice({
+            'external_id':    inv.id,
+            'supplier_name':  inv.supplier_name,
             'supplier_ref':   inv.supplier_ref,
             'invoice_number': inv.invoice_number,
             'invoice_date':   inv.invoice_date,
             'po_reference':   inv.po_reference,
+            'currency':       inv.currency,
             'subtotal':       float(inv.subtotal or 0),
             'vat_amount':     float(inv.vat_amount or 0),
             'total_amount':   float(inv.total_amount or 0),
             'lines': [{
+                'vat_rate':    float(l.vat_rate or 0),
                 'description': l.description,
                 'quantity':    float(l.quantity or 0),
                 'unit_price':  float(l.unit_price or 0),

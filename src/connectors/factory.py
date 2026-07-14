@@ -7,9 +7,10 @@ from src.connectors.base import BaseConnector
 from src.config_manager import load_settings
 
 SYSTEM_NAMES = {
-    'sage': 'Sage 50',
-    'qbo':  'QuickBooks Online',
-    'xero': 'Xero',
+    'sage':     'Sage 50',
+    'qbo':      'QuickBooks Online',
+    'xero':     'Xero',
+    'ledgeriq': 'Ledger-IQ',
 }
 
 
@@ -29,6 +30,9 @@ def get_connector(settings: dict = None) -> BaseConnector:
     elif system == 'xero':
         from src.connectors.xero_connector import XeroConnector
         return XeroConnector(settings)
+    elif system == 'ledgeriq':
+        from src.connectors.ledgeriq_connector import LedgerIQConnector
+        return LedgerIQConnector(settings)
     else:
         raise ValueError(
             f"Unknown finance system '{system}'. "

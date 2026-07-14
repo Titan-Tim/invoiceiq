@@ -39,6 +39,10 @@ DEFAULT_SETTINGS = {
         "redirect_uri":            "http://localhost:5000/auth/xero/callback",
         "default_expense_account": "300"
     },
+    "ledgeriq": {
+        "api_base_url":            "https://ledger.sol-iq.co.uk",
+        "api_key":                 ""
+    },
     "po_source": {
         "enabled":     True,           # whether to attempt PO matching at all
         "type":        "connector",   # "connector" | "folder"
