@@ -141,13 +141,21 @@
     </div>
   </div>
 
+  {% if reconfigure %}
+  <div class="text-center mb-3" style="margin-top:-14px;">
+    <a href="{{ url_for('dashboard') }}" class="text-muted small text-decoration-none">
+      <i class="bi bi-arrow-left me-1"></i>Exit setup — back to dashboard
+    </a>
+  </div>
+  {% endif %}
+
   <!-- Wizard card -->
   <div class="wiz-card">
 
     <!-- ═══════════════ STEP 1 : WELCOME ═══════════════ -->
     <div class="step-panel active" id="sp-1">
-      <div class="step-title">Welcome to Invoice-IQ 👋</div>
-      <p class="step-desc">Let's get your accounts payable automation up and running. This will take about 5 minutes and you can always change these settings later.</p>
+      <div class="step-title" id="sp1-title">Welcome to Invoice-IQ 👋</div>
+      <p class="step-desc" id="sp1-desc">Let's get your accounts payable automation up and running. This will take about 5 minutes and you can always change these settings later.</p>
       <div class="row g-3">
         <div class="col-sm-8">
           <label class="form-label fw-semibold">Company Name</label>
@@ -163,30 +171,34 @@
         </div>
       </div>
 
-      <hr class="my-4">
-      <div class="step-desc mb-3" style="margin-bottom:0;">
-        <strong style="color:#0f172a;">Create your admin account</strong>
-        <p class="mb-0 mt-1">This is what you'll use to sign in to Invoice-IQ going forward.</p>
+      <!-- Admin account creation — first-run only; hidden when an admin
+           re-opens the wizard from Settings to refresh connections. -->
+      <div id="admin-setup-block">
+        <hr class="my-4">
+        <div class="step-desc mb-3" style="margin-bottom:0;">
+          <strong style="color:#0f172a;">Create your admin account</strong>
+          <p class="mb-0 mt-1">This is what you'll use to sign in to Invoice-IQ going forward.</p>
+        </div>
+        <div class="row g-3 mt-2">
+          <div class="col-sm-6">
+            <label class="form-label fw-semibold">Your Name</label>
+            <input type="text" class="form-control" id="w-admin-name" placeholder="Jane Smith">
+          </div>
+          <div class="col-sm-6">
+            <label class="form-label fw-semibold">Email</label>
+            <input type="email" class="form-control" id="w-admin-email" placeholder="you@company.com">
+          </div>
+          <div class="col-sm-6">
+            <label class="form-label fw-semibold">Password</label>
+            <input type="password" class="form-control" id="w-admin-password" placeholder="At least 8 characters">
+          </div>
+          <div class="col-sm-6">
+            <label class="form-label fw-semibold">Confirm Password</label>
+            <input type="password" class="form-control" id="w-admin-password-confirm" placeholder="Re-enter password">
+          </div>
+        </div>
+        <div id="w-admin-error" class="text-danger small mt-2 d-none"></div>
       </div>
-      <div class="row g-3 mt-2">
-        <div class="col-sm-6">
-          <label class="form-label fw-semibold">Your Name</label>
-          <input type="text" class="form-control" id="w-admin-name" placeholder="Jane Smith">
-        </div>
-        <div class="col-sm-6">
-          <label class="form-label fw-semibold">Email</label>
-          <input type="email" class="form-control" id="w-admin-email" placeholder="you@company.com">
-        </div>
-        <div class="col-sm-6">
-          <label class="form-label fw-semibold">Password</label>
-          <input type="password" class="form-control" id="w-admin-password" placeholder="At least 8 characters">
-        </div>
-        <div class="col-sm-6">
-          <label class="form-label fw-semibold">Confirm Password</label>
-          <input type="password" class="form-control" id="w-admin-password-confirm" placeholder="Re-enter password">
-        </div>
-      </div>
-      <div id="w-admin-error" class="text-danger small mt-2 d-none"></div>
 
       <div class="wiz-nav">
         <button class="btn btn-primary px-4" onclick="validateStep1AndContinue()">
@@ -474,6 +486,9 @@
 // ── State ──────────────────────────────────────────────────────────────────
 let currentStep = {{ current_step | int }};
 let selectedSys = '';
+// Reconfigure mode: the wizard was opened from Settings by an admin to refresh
+// connections after initial setup (vs. the one-time first-run flow).
+const reconfigure = {{ 'true' if reconfigure else 'false' }};
 let oauthConnected = {{ 'true' if auth_result.success else 'false' }};
 const authSuccess  = '{{ auth_result.success }}';
 const authError    = '{{ auth_result.error }}';
@@ -482,6 +497,21 @@ const authError    = '{{ auth_result.error }}';
 document.addEventListener('DOMContentLoaded', () => {
   // Restore saved settings into wizard fields
   loadSavedSettings();
+
+  // Reconfigure mode: reframe the first-run wizard as a connection-refresh tool.
+  if (reconfigure) {
+    document.getElementById('admin-setup-block')?.classList.add('d-none');
+    const t = document.getElementById('sp1-title');
+    const d = document.getElementById('sp1-desc');
+    const b = document.querySelector('#sp-1 .btn-primary');
+    if (t) t.textContent = 'Update your connections';
+    if (d) d.textContent = "Refresh or re-authorise your finance system, email and AI settings. Your account, users and existing data stay exactly as they are.";
+    if (b) b.innerHTML = 'Continue <i class="bi bi-arrow-right ms-1"></i>';
+    const dt = document.querySelector('.done-title');
+    const ds = document.querySelector('.done-sub');
+    if (dt) dt.textContent = 'Settings updated';
+    if (ds) ds.textContent = 'Your connection settings have been saved.';
+  }
 
   // Handle returning from OAuth (e.g. /wizard?step=3&auth_success=qbo)
   if (authSuccess) {
@@ -575,6 +605,17 @@ function showStep(n) {
 }
 
 async function validateStep1AndContinue() {
+  // Reconfigure mode: the admin account already exists — just persist the
+  // company/currency and move on to the connection steps.
+  if (reconfigure) {
+    await partialSave({ app: {
+      company_name: document.getElementById('w-company').value,
+      currency:     document.getElementById('w-currency').value,
+    }});
+    goStep(2);
+    return;
+  }
+
   const errEl = document.getElementById('w-admin-error');
   const name  = document.getElementById('w-admin-name').value.trim();
   const email = document.getElementById('w-admin-email').value.trim().toLowerCase();

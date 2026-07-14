@@ -161,15 +161,27 @@ def create_app():
 
     @app.route('/wizard')
     def wizard():
+        """First-run setup wizard. Once setup is complete it remains available
+        to admins as a 'reconfigure' tool for refreshing connections — e.g.
+        re-authorising QuickBooks / Xero, or updating Sage / email / AI keys."""
         settings = load_settings()
+        reconfigure = False
         if settings.get('app', {}).get('setup_complete'):
-            return redirect(url_for('dashboard'))
+            # First run is over: the wizard is now an admin-only settings tool,
+            # not a login gate. Existing customers go straight to the dashboard.
+            if not session.get('user_id'):
+                return redirect(url_for('login'))
+            if session.get('user_role') != 'admin':
+                flash('Only admins can change connection settings.', 'warning')
+                return redirect(url_for('dashboard'))
+            reconfigure = True
         step = request.args.get('step', '1')
         auth_result = {
             'success': request.args.get('auth_success', ''),
             'error':   request.args.get('auth_error',   ''),
         }
-        return render_template('wizard.html', current_step=step, auth_result=auth_result)
+        return render_template('wizard.html', current_step=step,
+                               auth_result=auth_result, reconfigure=reconfigure)
 
     @app.route('/login', methods=['GET', 'POST'])
     def login():

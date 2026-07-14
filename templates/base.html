@@ -35,22 +35,11 @@
   <!-- Sidebar -->
   <nav id="sidebar">
     <div class="sidebar-brand">
-      <svg width="28" height="28" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" class="me-2 flex-shrink-0">
-        <defs>
-          <linearGradient id="iiq-sun" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stop-color="#FFC24B"/>
-            <stop offset="100%" stop-color="#E8722C"/>
-          </linearGradient>
-        </defs>
-        <line x1="3" y1="30" x2="37" y2="30" stroke="#FFFFFF" stroke-width="2.4" stroke-linecap="round"/>
-        <path d="M8 30a12 12 0 0 1 24 0" fill="url(#iiq-sun)"/>
-        <g stroke="#F5A623" stroke-width="2.2" stroke-linecap="round">
-          <line x1="20" y1="4" x2="20" y2="11"/>
-          <line x1="6" y1="12" x2="10.5" y2="15.5"/>
-          <line x1="34" y1="12" x2="29.5" y2="15.5"/>
-        </g>
-      </svg>
-      <span class="brand-text">Invoice<strong>-IQ</strong></span>
+      <span class="brand-mark" aria-hidden="true"></span>
+      <span class="d-flex flex-column min-w-0">
+        <span class="brand-text">Invoice<strong>-IQ</strong></span>
+        <span class="brand-sub">part of Sol-IQ</span>
+      </span>
     </div>
     <div class="sidebar-system-badge">{{ finance_system_name }}</div>
     <div class="sidebar-section-label">MENU</div>
