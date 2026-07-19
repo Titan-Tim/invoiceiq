@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+{% block title %}Remittances{% endblock %}
+{% block page_title %}Remittances{% endblock %}
+
+{% block content %}
+<p class="text-muted small mb-3">
+  Upload customer remittance advices. Invoice-IQ reads the paid invoice references and marks the matching
+  <strong>sales invoices</strong> paid in {{ finance_system_name }}.
+</p>
+
+<!-- Drop zone -->
+<div class="drop-zone" id="rem-drop">
+  <div class="drop-zone-icon"><i class="bi bi-cash-coin"></i></div>
+  <div class="drop-zone-text">
+    <strong>Drop remittance PDFs here</strong>
+    <small>or click to choose files — extracted and matched automatically</small>
+  </div>
+  <div class="drop-zone-btn">
+    <button class="btn btn-primary btn-sm" type="button" onclick="document.getElementById('rem-file').click()">
+      <i class="bi bi-upload me-1"></i>Upload
+    </button>
+  </div>
+  <input type="file" id="rem-file" multiple accept=".pdf,.png,.jpg,.jpeg,.tiff,.tif,.webp" style="display:none">
+</div>
+<div id="rem-uploads"></div>
+
+<!-- Remittances table -->
+<div class="panel mt-3">
+  <div class="panel-header">
+    <h6><i class="bi bi-cash-stack me-2 text-muted"></i>Remittances</h6>
+    <button class="btn btn-sm btn-link text-decoration-none" onclick="loadRemittances()">Refresh</button>
+  </div>
+  <div class="panel-body">
+    <div class="table-responsive">
+      <table class="ap-table" id="rem-table">
+        <thead>
+          <tr><th></th><th>Customer</th><th>Date</th><th>Reference</th><th>Amount</th><th>Result</th><th>Status</th></tr>
+        </thead>
+        <tbody id="rem-tbody">
+          <tr><td colspan="7" class="text-center text-muted py-4">Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const expanded = new Set();
+
+async function loadRemittances() {
+  const data = await fetch('/api/remittances').then(r => r.json());
+  const tbody = document.getElementById('rem-tbody');
+  if (!data.remittances.length) {
+    tbody.innerHTML = `<tr><td colspan="7"><div class="empty-state"><i class="bi bi-cash-coin"></i>No remittances yet</div></td></tr>`;
+    return;
+  }
+  tbody.innerHTML = data.remittances.map(r => {
+    const open = expanded.has(r.id);
+    const lines = (r.lines || []).map(l => {
+      const res = (r.result && r.result.matched || []).find(m => m.invoice_number == l.invoice_number);
+      const unmatched = (r.result && r.result.unmatched || []).includes(String(l.invoice_number));
+      const badge = res ? `<span class="status-badge badge-success">${res.status}</span>`
+                  : unmatched ? `<span class="status-badge badge-danger">Not found</span>`
+                  : '<span class="text-muted">—</span>';
+      return `<tr>
+        <td></td>
+        <td colspan="3" class="text-muted"><i class="bi bi-arrow-return-right me-1"></i>Invoice <strong>${l.invoice_number}</strong>${l.description ? ' · ' + l.description : ''}</td>
+        <td>${formatCurrency(l.amount)}</td>
+        <td colspan="2">${badge}</td>
+      </tr>`;
+    }).join('');
+    return `
+      <tr onclick="toggleRem(${r.id})" style="cursor:pointer">
+        <td><i class="bi bi-chevron-${open ? 'down' : 'right'} text-muted"></i></td>
+        <td><strong>${r.customer_name || '—'}</strong></td>
+        <td class="text-muted">${formatDate(r.remittance_date)}</td>
+        <td class="text-muted">${r.reference || '—'}</td>
+        <td>${r.total_amount != null ? formatCurrency(r.total_amount) : '—'}</td>
+        <td class="small">${r.matched_count} matched${r.unmatched_count ? ` · <span class="text-danger">${r.unmatched_count} not found</span>` : ''}</td>
+        <td>${statusBadge(r.status, r.status_label, r.status_color)}</td>
+      </tr>
+      ${open ? lines : ''}
+      ${open && r.status_message ? `<tr><td></td><td colspan="6" class="small text-muted pb-3">${r.status_message}</td></tr>` : ''}
+    `;
+  }).join('');
+}
+
+function toggleRem(id) {
+  if (expanded.has(id)) expanded.delete(id); else expanded.add(id);
+  loadRemittances();
+}
+
+// ---- Upload ----
+const drop = document.getElementById('rem-drop');
+const fileInput = document.getElementById('rem-file');
+drop.addEventListener('click', e => { if (e.target === drop || e.target.closest('.drop-zone-text') || e.target.closest('.drop-zone-icon')) fileInput.click(); });
+['dragover','dragenter'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('drag-over'); }));
+['dragleave','drop'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove('drag-over'); }));
+drop.addEventListener('drop', e => uploadFiles(e.dataTransfer.files));
+fileInput.addEventListener('change', e => uploadFiles(e.target.files));
+
+async function uploadFiles(files) {
+  if (!files || !files.length) return;
+  const box = document.getElementById('rem-uploads');
+  const fd = new FormData();
+  [...files].forEach(f => fd.append('files', f));
+  box.innerHTML = [...files].map(f => `<div class="upload-item"><i class="bi bi-file-earmark-text"></i><span class="filename">${f.name}</span><span class="upload-status"><i class="bi bi-arrow-repeat spinning"></i></span></div>`).join('');
+  try {
+    await fetch('/api/remittances/upload', { method: 'POST', body: fd });
+    box.innerHTML = [...files].map(f => `<div class="upload-item done"><i class="bi bi-check-circle text-success"></i><span class="filename">${f.name}</span><span class="upload-status text-success">Processing…</span></div>`).join('');
+    setTimeout(() => { box.innerHTML = ''; }, 4000);
+  } catch (e) {
+    box.innerHTML = `<div class="upload-item error"><i class="bi bi-x-circle text-danger"></i><span class="filename">Upload failed</span></div>`;
+  }
+  fileInput.value = '';
+  loadRemittances();
+}
+
+loadRemittances();
+setInterval(loadRemittances, 4000);
+</script>
+{% endblock %}

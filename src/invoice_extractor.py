@@ -43,6 +43,31 @@ Rules:
 - currency defaults to GBP if not shown"""
 
 
+REMITTANCE_PROMPT = """You are an expert accounts receivable clerk. This is a REMITTANCE ADVICE a customer sent us to tell us which of OUR sales invoices they have paid.
+
+Return ONLY a JSON object — no explanation, no markdown — with this exact structure:
+{
+  "customer_name": "string",
+  "remittance_date": "YYYY-MM-DD or null",
+  "reference": "string or null",
+  "currency": "GBP",
+  "lines": [
+    { "invoice_number": "string", "amount": number, "description": "string or null" }
+  ],
+  "total_amount": number,
+  "confidence": 0.95,
+  "notes": "any issues or uncertainties"
+}
+
+Rules:
+- customer_name is the party who MADE the payment / SENT this remittance (usually the top/header address), NOT the recipient being paid.
+- Each line is one paid invoice. invoice_number is the invoice reference (often a column labelled "Ref", "Reference", "Invoice", or "Invoice No"). amount is the value paid for that invoice (the "Credit", "Amount", "Paid" or "Value" column) as a positive number.
+- reference is any payment reference shown (e.g. "Cheque No", BACS ref, payment number).
+- total_amount is the overall amount paid (often labelled "Amount Paid" or "Total").
+- Numbers must be numeric (not strings). Use null for fields not found.
+- currency defaults to GBP if not shown."""
+
+
 class InvoiceExtractor:
     def __init__(self):
         self.settings = load_settings()
@@ -50,6 +75,12 @@ class InvoiceExtractor:
         self.model = self.settings['claude'].get('model', 'claude-opus-4-7')
 
     def extract(self, file_path: str) -> dict:
+        return self._extract_with_prompt(file_path, EXTRACTION_PROMPT)
+
+    def extract_remittance(self, file_path: str) -> dict:
+        return self._extract_with_prompt(file_path, REMITTANCE_PROMPT)
+
+    def _extract_with_prompt(self, file_path: str, prompt: str) -> dict:
         path = Path(file_path)
         images = self._to_images(path)
 
@@ -59,7 +90,7 @@ class InvoiceExtractor:
                 "type": "image",
                 "source": {"type": "base64", "media_type": "image/png", "data": img_b64}
             })
-        content.append({"type": "text", "text": EXTRACTION_PROMPT})
+        content.append({"type": "text", "text": prompt})
 
         message = self.client.messages.create(
             model=self.model,

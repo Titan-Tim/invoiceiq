@@ -187,3 +187,67 @@ class AuditLog(db.Model):
     user_name = db.Column(db.String(100))
     timestamp = db.Column(db.DateTime, default=datetime.utcnow)
     notes = db.Column(db.Text)
+
+
+class Remittance(db.Model):
+    """A customer remittance advice — a notice of which of OUR sales invoices a
+    customer has paid. Ingested, AI-extracted, then pushed to the finance system
+    (Ledger-IQ) to mark those sales invoices paid."""
+    __tablename__ = 'remittances'
+    id = db.Column(db.Integer, primary_key=True)
+
+    attachment_filename = db.Column(db.String(500))
+    attachment_path = db.Column(db.String(1000))
+
+    customer_name = db.Column(db.String(200))
+    remittance_date = db.Column(db.Date)
+    reference = db.Column(db.String(200))
+    currency = db.Column(db.String(10), default='GBP')
+    total_amount = db.Column(db.Numeric(15, 2))
+
+    status = db.Column(db.String(50), default='received', index=True)  # received, extracting, posting, posted, partial, exception
+    status_message = db.Column(db.Text)
+    extraction_confidence = db.Column(db.Float)
+    extraction_raw = db.Column(db.Text)
+
+    lines_json = db.Column(db.Text)    # extracted [{invoice_number, amount, description}]
+    result_json = db.Column(db.Text)   # finance-system response {matched:[...], unmatched:[...]}
+    matched_count = db.Column(db.Integer, default=0)
+    unmatched_count = db.Column(db.Integer, default=0)
+
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    STATUS_LABELS = {
+        'received':   ('Received',   'secondary'),
+        'extracting': ('Extracting', 'info'),
+        'posting':    ('Posting',    'info'),
+        'posted':     ('Posted',     'success'),
+        'partial':    ('Partial',    'warning'),
+        'exception':  ('Exception',  'danger'),
+    }
+
+    def status_label(self):
+        return self.STATUS_LABELS.get(self.status, (self.status, 'secondary'))
+
+    def to_dict(self):
+        import json as _json
+        label, color = self.status_label()
+        return {
+            'id': self.id,
+            'customer_name': self.customer_name,
+            'remittance_date': self.remittance_date.isoformat() if self.remittance_date else None,
+            'reference': self.reference,
+            'currency': self.currency,
+            'total_amount': float(self.total_amount) if self.total_amount is not None else None,
+            'status': self.status,
+            'status_label': label,
+            'status_color': color,
+            'status_message': self.status_message,
+            'attachment_filename': self.attachment_filename,
+            'matched_count': self.matched_count or 0,
+            'unmatched_count': self.unmatched_count or 0,
+            'lines': _json.loads(self.lines_json) if self.lines_json else [],
+            'result': _json.loads(self.result_json) if self.result_json else None,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+        }

@@ -160,3 +160,32 @@ class LedgerIQConnector(BaseConnector):
             raise RuntimeError(f"{r.status_code} {r.reason}: {r.text[:400]}")
         res = r.json()
         return str(res.get('invoiceId') or res.get('id') or '')
+
+    # ------------------------------------------------------------------ #
+    # Accounts receivable — mark sales invoices paid from a remittance
+    # ------------------------------------------------------------------ #
+
+    def post_receipt(self, remittance_data: dict) -> dict:
+        """Push a customer remittance to Ledger-IQ to mark the referenced sales
+        invoices paid. Returns {paymentsCreated, totalAllocated, matched[], unmatched[]}."""
+        self._require_config()
+        date = remittance_data.get('date')
+        date = date.isoformat() if hasattr(date, 'isoformat') else (date or '')
+        payload = {
+            'externalId':   str(remittance_data.get('external_id') or ''),
+            'customerName': remittance_data.get('customer_name'),
+            'date':         date,
+            'reference':    remittance_data.get('reference') or None,
+            'currency':     remittance_data.get('currency') or 'GBP',
+            'lines': [{
+                'invoiceNumber': str(l.get('invoice_number') or '').strip(),
+                'amount':        float(l.get('amount') or 0),
+            } for l in (remittance_data.get('lines') or [])
+                if str(l.get('invoice_number') or '').strip() and float(l.get('amount') or 0) > 0],
+        }
+        r = requests.post(f'{self.base_url}/api/v1/receipts',
+                          headers={**self._headers(), 'Content-Type': 'application/json'},
+                          json=payload, timeout=_TIMEOUT)
+        if not r.ok:
+            raise RuntimeError(f"{r.status_code} {r.reason}: {r.text[:400]}")
+        return r.json()

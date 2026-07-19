@@ -12,7 +12,7 @@ from werkzeug.utils import secure_filename
 from flask import (Flask, render_template, request, jsonify,
                    session, redirect, url_for, send_file, flash)
 
-from src.database import db, Invoice, InvoiceLine, PurchaseOrder, POLine, User, AuditLog
+from src.database import db, Invoice, InvoiceLine, PurchaseOrder, POLine, User, AuditLog, Remittance
 from src.config_manager import load_settings, save_settings
 from src.approval import ApprovalWorkflow
 from src.connectors.factory import get_connector, get_system_name
@@ -461,6 +461,63 @@ def create_app():
             results.append({'id': invoice.id, 'filename': f.filename})
 
         return jsonify({'invoices': results})
+
+    # ------------------------------------------------------------------ #
+    # Remittances (accounts receivable)
+    # ------------------------------------------------------------------ #
+
+    @app.route('/remittances')
+    def remittances():
+        return render_template('remittances.html',
+                               user_name=session.get('user_name'),
+                               user_role=session.get('user_role', 'admin'))
+
+    @app.route('/api/remittances')
+    def api_remittances():
+        rows = Remittance.query.order_by(Remittance.created_at.desc()).limit(100).all()
+        return jsonify({'remittances': [r.to_dict() for r in rows]})
+
+    @app.route('/api/remittances/upload', methods=['POST'])
+    def api_upload_remittances():
+        """Accept manually uploaded remittance-advice files and run extraction +
+        posting to the finance system in the background."""
+        files = request.files.getlist('files')
+        if not files or all(f.filename == '' for f in files):
+            return jsonify({'error': 'No files provided'}), 400
+
+        settings = load_settings()
+        storage  = settings['app'].get('attachment_storage_path', 'invoices')
+        Path(storage).mkdir(parents=True, exist_ok=True)
+        ALLOWED = {'.pdf', '.png', '.jpg', '.jpeg', '.tiff', '.tif', '.webp'}
+        results = []
+
+        for f in files:
+            if not f.filename:
+                continue
+            suffix = Path(f.filename).suffix.lower()
+            if suffix not in ALLOWED:
+                results.append({'filename': f.filename, 'error': 'Unsupported file type'})
+                continue
+
+            rem = Remittance(attachment_filename=f.filename, status='received')
+            db.session.add(rem)
+            db.session.flush()
+
+            safe_name = f'remit_{rem.id}_{secure_filename(f.filename)}'
+            save_path = str(Path(storage) / safe_name)
+            f.save(save_path)
+            rem.attachment_path = save_path
+            db.session.commit()
+
+            def _run(app_ctx, rem_id):
+                with app_ctx:
+                    from src.remittance_processor import process_remittance
+                    process_remittance(rem_id)
+
+            threading.Thread(target=_run, args=(app.app_context(), rem.id), daemon=True).start()
+            results.append({'id': rem.id, 'filename': f.filename})
+
+        return jsonify({'remittances': results})
 
     @app.route('/api/invoices/<int:invoice_id>')
     def api_invoice_detail(invoice_id):

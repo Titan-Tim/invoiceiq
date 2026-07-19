@@ -57,6 +57,12 @@
         </a>
       </li>
       <li class="nav-item">
+        <a class="nav-link {% if request.endpoint == 'remittances' %}active{% endif %}"
+           href="{{ url_for('remittances') }}">
+          <i class="bi bi-cash-coin"></i> Remittances
+        </a>
+      </li>
+      <li class="nav-item">
         <a class="nav-link {% if request.endpoint == 'approvals' %}active{% endif %}"
            href="{{ url_for('approvals') }}">
           <i class="bi bi-check2-circle"></i> Approvals
