@@ -3,7 +3,7 @@ import os
 import secrets
 import threading
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 import requests
@@ -68,6 +68,13 @@ def create_app():
             'SECRET_KEY env var is not set — using the insecure default. '
             'Set SECRET_KEY in your hosting environment before going live.'
         )
+
+    # Rolling 30-minute inactivity timeout. Sessions are marked permanent at
+    # login, so this lifetime applies; Flask's SESSION_REFRESH_EACH_REQUEST
+    # (True by default) resets the cookie expiry on every response, making it an
+    # idle timeout — an active user stays signed in, a lost/idle device is
+    # logged out within 30 minutes.
+    app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=30)
 
     database_url = os.environ.get('DATABASE_URL')
     if database_url:
@@ -191,6 +198,7 @@ def create_app():
             password = request.form.get('password', '')
             user = User.query.filter_by(email=email, is_active=True).first()
             if user and user.check_password(password):
+                session.permanent = True  # apply PERMANENT_SESSION_LIFETIME (rolling 30-min idle timeout)
                 session.update({'user_id': user.id, 'user_name': user.name,
                                 'user_role': user.role})
                 if user.must_change_password:
