@@ -52,6 +52,12 @@ def _run_migrations():
         db.session.execute(text('ALTER TABLE users ADD COLUMN password_hash VARCHAR(255)'))
         db.session.commit()
 
+    if 'invoice_lines' in inspector.get_table_names():
+        line_cols = {c['name'] for c in inspector.get_columns('invoice_lines')}
+        if 'account_code' not in line_cols:
+            db.session.execute(text('ALTER TABLE invoice_lines ADD COLUMN account_code VARCHAR(50)'))
+            db.session.commit()
+
 
 def create_app():
     app = Flask(__name__)
@@ -532,10 +538,9 @@ def create_app():
         except Exception as e:
             return jsonify({'error': f'Could not read the delivery note: {e}'}), 500
 
-        # 2. Require a signature — this is the trigger to invoice
-        if not data.get('signature_present'):
-            return jsonify({'ok': False, 'stage': 'unsigned', 'extracted': data,
-                            'message': 'No signature detected — the delivery note is not signed, so no invoice was generated.'})
+        # Note: we do NOT gate on signature detection — delivery notes are only
+        # scanned once already signed, so a missing/misread signature must never
+        # block invoicing. signed_by is still captured for display where present.
 
         # 3. Match / create the customer in Xero
         customer_name = (data.get('customer_name') or '').strip()
@@ -653,6 +658,7 @@ def create_app():
             'line_total':  float(l.line_total or 0),
             'vat_rate':    float(l.vat_rate or 0),
             'product_code': l.product_code,
+            'account_code': l.account_code,
             'matched':     l.matched,
         } for l in sorted(inv.lines, key=lambda x: x.line_number or 0)]
 
@@ -736,6 +742,7 @@ def create_app():
                     db.session.add(line)
                 line.description  = (line_data.get('description') or '').strip() or None
                 line.product_code = (line_data.get('product_code') or '').strip() or None
+                line.account_code = (line_data.get('account_code') or '').strip() or None
                 line.quantity      = _num(line_data.get('quantity')) or 0
                 line.unit_price    = _num(line_data.get('unit_price')) or 0
                 line.line_total    = _num(line_data.get('line_total')) or 0
@@ -1275,11 +1282,12 @@ def create_app():
             'vat_amount':     float(inv.vat_amount or 0),
             'total_amount':   float(inv.total_amount or 0),
             'lines': [{
-                'vat_rate':    float(l.vat_rate or 0),
-                'description': l.description,
-                'quantity':    float(l.quantity or 0),
-                'unit_price':  float(l.unit_price or 0),
-                'line_total':  float(l.line_total or 0),
+                'vat_rate':     float(l.vat_rate or 0),
+                'description':  l.description,
+                'quantity':     float(l.quantity or 0),
+                'unit_price':   float(l.unit_price or 0),
+                'line_total':   float(l.line_total or 0),
+                'account_code': l.account_code,
             } for l in inv.lines],
         })
         inv.sage_transaction_ref = ref

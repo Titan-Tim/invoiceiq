@@ -161,6 +161,29 @@ class XeroConnector(BaseConnector):
             })
         return pos
 
+    def get_expense_accounts(self) -> list[dict]:
+        """Return the org's expense-class accounts (for coding bill lines):
+        [{'id','code','name','type'}]. Used by the AI line-coder and the
+        Settings default-account picker."""
+        resp = requests.get(
+            f"{API_BASE}/Accounts",
+            headers=self._headers(),
+            params={'where': 'Status=="ACTIVE"'}
+        )
+        resp.raise_for_status()
+        accounts = []
+        for a in resp.json().get('Accounts', []):
+            # EXPENSE class covers Expenses, Overheads and Direct Costs — the
+            # accounts a purchase (bill) line would sensibly be coded to.
+            if a.get('Class') == 'EXPENSE' and a.get('Code'):
+                accounts.append({
+                    'id':   a['Code'],
+                    'code': a['Code'],
+                    'name': a.get('Name', ''),
+                    'type': a.get('Type', ''),
+                })
+        return accounts
+
     def find_vendor(self, supplier_name: str) -> Optional[str]:
         resp = requests.get(
             f"{API_BASE}/Contacts",
@@ -243,7 +266,8 @@ class XeroConnector(BaseConnector):
                 'Quantity':    float(l.get('quantity', 1)),
                 'UnitAmount':  float(l.get('unit_price', 0)),
                 'LineAmount':  float(l.get('line_total', 0)),
-                'AccountCode': account_code,
+                # Use the AI-assigned per-line nominal, falling back to the default.
+                'AccountCode': l.get('account_code') or account_code,
                 'TaxType':     'INPUT2',   # UK standard rated input VAT
             } for l in invoice_data['lines']]
         else:

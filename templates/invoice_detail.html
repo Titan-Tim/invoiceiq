@@ -109,6 +109,7 @@
         <table class="ap-table">
           <thead>
             <tr><th>Description</th><th style="width:90px">Code</th>
+              <th style="width:96px">Nominal</th>
               <th class="text-end" style="width:70px">Qty</th><th class="text-end" style="width:100px">Unit Price</th>
               <th class="text-end" style="width:100px">Total</th><th class="text-end" style="width:70px">VAT %</th><th style="width:36px"></th>
             </tr>
@@ -274,12 +275,13 @@ function renderLines() {
     <tr>
       <td><input class="form-control form-control-sm line-field" data-i="${i}" data-f="description" value="${l.description || ''}" ${editable ? '' : 'disabled'}></td>
       <td><input class="form-control form-control-sm line-field" data-i="${i}" data-f="product_code" value="${l.product_code || ''}" ${editable ? '' : 'disabled'}></td>
+      <td><input class="form-control form-control-sm line-field ${l.account_code ? 'border-success' : ''}" data-i="${i}" data-f="account_code" value="${l.account_code || ''}" title="AI-assigned nominal code" ${editable ? '' : 'disabled'}></td>
       <td><input type="number" step="0.01" class="form-control form-control-sm text-end line-field" data-i="${i}" data-f="quantity" value="${l.quantity ?? 0}" ${editable ? '' : 'disabled'}></td>
       <td><input type="number" step="0.01" class="form-control form-control-sm text-end line-field" data-i="${i}" data-f="unit_price" value="${l.unit_price ?? 0}" ${editable ? '' : 'disabled'}></td>
       <td><input type="number" step="0.01" class="form-control form-control-sm text-end line-field" data-i="${i}" data-f="line_total" value="${l.line_total ?? 0}" ${editable ? '' : 'disabled'}></td>
       <td><input type="number" step="0.01" class="form-control form-control-sm text-end line-field" data-i="${i}" data-f="vat_rate" value="${l.vat_rate ?? 0}" ${editable ? '' : 'disabled'}></td>
       <td>${editable ? `<button class="btn btn-sm btn-outline-danger" onclick="removeLine(${i})"><i class="bi bi-trash"></i></button>` : ''}</td>
-    </tr>`).join('') || '<tr><td colspan="7" class="text-muted text-center py-3">No line items extracted</td></tr>';
+    </tr>`).join('') || '<tr><td colspan="8" class="text-muted text-center py-3">No line items extracted</td></tr>';
 
   document.querySelectorAll('.line-field').forEach(el => {
     el.addEventListener('change', () => {

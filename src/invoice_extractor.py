@@ -109,6 +109,45 @@ class InvoiceExtractor:
     def extract_delivery_note(self, file_path: str) -> dict:
         return self._extract_with_prompt(file_path, DELIVERY_NOTE_PROMPT)
 
+    def suggest_line_accounts(self, lines: list, accounts: list) -> list:
+        """Given invoice lines and a chart of accounts ([{code,name,...}]), return
+        the best-matching account code per line, aligned to input order. Returns
+        None for a line when unsure or if the model returns an unknown code, so
+        the caller falls back to the default account. Never raises."""
+        valid = {str(a['code']) for a in accounts if a.get('code')}
+        if not lines or not valid:
+            return [None] * len(lines)
+
+        chart = "\n".join(f"{a['code']} — {a.get('name','')}" for a in accounts if a.get('code'))
+        items = "\n".join(f"{i+1}. {(l.get('description') or '').strip()}"
+                          for i, l in enumerate(lines))
+        prompt = (
+            "You are a bookkeeper coding a purchase (supplier) invoice to the nominal ledger.\n\n"
+            "Chart of accounts (code — name):\n" + chart + "\n\n"
+            "Invoice lines:\n" + items + "\n\n"
+            "For each line, choose the single most appropriate account CODE from the chart "
+            "above based on what was bought. If genuinely unsure, use null. "
+            'Return ONLY JSON: {"codes": ["<code or null>", ...]} with exactly one entry '
+            "per line, in the same order."
+        )
+        try:
+            msg = self.client.messages.create(
+                model=self.model, max_tokens=1024,
+                messages=[{"role": "user", "content": prompt}],
+            )
+            raw = msg.content[0].text.strip()
+            obj = json.loads(raw[raw.find('{'):raw.rfind('}') + 1])
+            codes = obj.get('codes', []) or []
+        except Exception:
+            return [None] * len(lines)
+
+        out = []
+        for i in range(len(lines)):
+            c = codes[i] if i < len(codes) else None
+            c = str(c).strip() if c not in (None, "null", "") else None
+            out.append(c if c in valid else None)
+        return out
+
     def _extract_with_prompt(self, file_path: str, prompt: str) -> dict:
         path = Path(file_path)
         images = self._to_images(path)

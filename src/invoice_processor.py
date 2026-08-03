@@ -186,6 +186,10 @@ def process_uploaded_invoice(invoice_id: int) -> None:
         db.session.commit()
         return
 
+    # AI-code each line to a nominal from the finance system's chart of accounts.
+    # Best-effort: never blocks the pipeline.
+    _code_lines(invoice, extractor)
+
     # Match PO (skipped entirely if this business doesn't use POs)
     if settings.get('po_source', {}).get('enabled', True):
         try:
@@ -349,6 +353,30 @@ def _apply_extraction(invoice: Invoice, data: dict):
             vat_rate    = ld.get('vat_rate'),
             product_code = ld.get('product_code'),
         ))
+
+
+def _code_lines(invoice: Invoice, extractor: InvoiceExtractor):
+    """AI-assign a nominal/account code to each invoice line from the finance
+    system's chart of accounts. Best-effort — on any failure it leaves codes
+    unset, so posting falls back to the configured default expense account."""
+    try:
+        from src.connectors.factory import get_connector
+        connector = get_connector()
+        accounts  = connector.get_expense_accounts()
+        lines     = list(invoice.lines)
+        if not accounts or not lines:
+            return
+        codes = extractor.suggest_line_accounts(
+            [{'description': l.description} for l in lines], accounts)
+        changed = False
+        for line, code in zip(lines, codes):
+            if code:
+                line.account_code = code
+                changed = True
+        if changed:
+            db.session.commit()
+    except Exception:
+        db.session.rollback()
 
 
 def _resolve_vendor_ref(invoice: Invoice):

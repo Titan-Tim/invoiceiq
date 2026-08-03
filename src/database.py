@@ -141,6 +141,7 @@ class InvoiceLine(db.Model):
     line_total = db.Column(db.Numeric(15, 2))
     vat_rate = db.Column(db.Numeric(5, 2))
     product_code = db.Column(db.String(100))
+    account_code = db.Column(db.String(50))   # nominal/expense code AI-assigned from the finance system's chart
     matched = db.Column(db.Boolean, default=False)
     match_notes = db.Column(db.String(500))
 
