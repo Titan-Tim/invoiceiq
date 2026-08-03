@@ -22,6 +22,10 @@
   <span><i class="bi bi-exclamation-triangle-fill me-1"></i>Showing only invoices that need attention (a Finance or Ledger-IQ push failed)</span>
   <a href="{{ url_for('invoices') }}" class="btn btn-sm btn-outline-secondary">Clear filter</a>
 </div>
+<div id="processed-pill" class="alert alert-success d-flex align-items-center justify-content-between py-2 px-3 mb-3" style="display:none">
+  <span><i class="bi bi-check2-all me-1"></i>Showing invoices successfully posted to {{ finance_system_name }} — cross-check any of these against the reference shown.</span>
+  <a href="{{ url_for('invoices') }}" class="btn btn-sm btn-outline-secondary">Clear filter</a>
+</div>
 <div class="filter-bar">
   <div class="input-group" style="max-width:280px">
     <span class="input-group-text bg-white border-end-0"><i class="bi bi-search text-muted"></i></span>
@@ -81,6 +85,7 @@
 let currentPage = 1;
 let searchTimer = null;
 let needsAttentionFilter = new URLSearchParams(window.location.search).get('needs_attention') === '1';
+let processedFilter = new URLSearchParams(window.location.search).get('processed') === '1';
 
 function loadInvoices(page = 1) {
   currentPage = page;
@@ -88,7 +93,9 @@ function loadInvoices(page = 1) {
   const status = document.getElementById('status-filter').value;
   const params = new URLSearchParams({ page, per_page: 25, search, status });
   if (needsAttentionFilter) params.set('needs_attention', '1');
+  if (processedFilter) params.set('processed', '1');
   document.getElementById('needs-attention-pill').style.display = needsAttentionFilter ? '' : 'none';
+  document.getElementById('processed-pill').style.display = processedFilter ? '' : 'none';
 
   document.getElementById('invoice-tbody').innerHTML =
     `<tr><td colspan="8" class="text-center py-4 text-muted">Loading…</td></tr>`;
@@ -116,7 +123,9 @@ function loadInvoices(page = 1) {
           <td class="fw-semibold">${inv.total_amount != null ? formatCurrency(inv.total_amount) : '—'}</td>
           <td class="text-muted" style="white-space:nowrap">${formatDate(inv.email_received_at)}</td>
           <td>${inv.match_confidence != null ? confidenceBar(Math.round(inv.match_confidence * 100)) : '—'}</td>
-          <td>${statusBadge(inv.status, inv.status_label, inv.status_color)}</td>
+          <td>${statusBadge(inv.status, inv.status_label, inv.status_color)}
+            ${inv.finance_ref ? `<div class="small text-muted mt-1" title="Posted ${formatDate(inv.posted_to_finance_at)}"><i class="bi bi-check-circle-fill text-success me-1"></i>Ref: <code>${inv.finance_ref}</code></div>` : ''}
+          </td>
         </tr>`).join('');
 
       const start = (data.page - 1) * data.per_page + 1;

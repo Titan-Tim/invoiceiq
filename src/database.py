@@ -127,6 +127,8 @@ class Invoice(db.Model):
             'extraction_confidence': self.extraction_confidence,
             'push_failed': self.push_failed,
             'status_message': self.status_message,
+            'finance_ref': self.sage_transaction_ref,
+            'posted_to_finance_at': self.posted_to_sage_at.isoformat() if self.posted_to_sage_at else None,
         }
 
 

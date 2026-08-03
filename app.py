@@ -413,6 +413,7 @@ def create_app():
         status          = request.args.get('status', '')
         search          = request.args.get('search', '').strip()
         needs_attention = request.args.get('needs_attention', '') == '1'
+        processed       = request.args.get('processed', '') == '1'
         page            = max(int(request.args.get('page', 1)), 1)
         per_page        = min(int(request.args.get('per_page', 25)), 100)
 
@@ -421,6 +422,9 @@ def create_app():
             q = q.filter_by(status=status)
         if needs_attention:
             q = q.filter_by(push_failed=True)
+        if processed:
+            # Successfully posted to the finance system == has a transaction ref.
+            q = q.filter(Invoice.sage_transaction_ref.isnot(None))
         if search:
             q = q.filter(db.or_(
                 Invoice.supplier_name.ilike(f'%{search}%'),
