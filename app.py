@@ -16,6 +16,7 @@ from src.database import db, Invoice, InvoiceLine, PurchaseOrder, POLine, User, 
 from src.config_manager import load_settings, save_settings
 from src.approval import ApprovalWorkflow
 from src.connectors.factory import get_connector, get_system_name
+from src.licence import licence_enforced, licence_status, is_licensed_action
 
 
 class _PrefixMiddleware:
@@ -141,6 +142,31 @@ def create_app():
         if request.path.startswith('/api/'):
             return jsonify({'error': 'Authentication required'}), 401
         return redirect(url_for('login'))
+
+    # ------------------------------------------------------------------ #
+    # On-prem licence gate — a complete no-op unless INVOICEIQ_LICENCE_ENFORCED
+    # is set (so the cloud/Render SaaS deployment is unaffected). Fail-soft: only
+    # mutating "processing" actions are paused when a licence lapses; reading
+    # existing invoices/data is never blocked.
+    # ------------------------------------------------------------------ #
+
+    @app.before_request
+    def enforce_licence():
+        if not licence_enforced():
+            return
+        status = licence_status()
+        if status and not status.get('action_allowed') and is_licensed_action(request.method, request.path):
+            msg = status.get('message') or 'Your Invoice-IQ licence is inactive.'
+            if request.path.startswith('/api/'):
+                return jsonify({'error': 'licence_inactive', 'message': msg}), 402
+            flash(msg, 'error')
+            return redirect(url_for('dashboard'))
+
+    @app.context_processor
+    def inject_licence():
+        # None on cloud/unlicensed; a status dict on-prem so templates can show a
+        # renewal banner via licence_status.message / .severity.
+        return {'licence_status': licence_status()}
 
     # ------------------------------------------------------------------ #
     # Page routes
@@ -469,6 +495,82 @@ def create_app():
             results.append({'id': invoice.id, 'filename': f.filename})
 
         return jsonify({'invoices': results})
+
+    # ------------------------------------------------------------------ #
+    # Deliver-to-Invoice (accounts receivable) — generate a Xero sales
+    # invoice from a signed delivery note / proof of delivery.
+    # ------------------------------------------------------------------ #
+
+    @app.route('/deliver-to-invoice')
+    def deliver_to_invoice():
+        return render_template('deliver_to_invoice.html')
+
+    @app.route('/api/deliver-to-invoice/process', methods=['POST'])
+    def api_deliver_to_invoice():
+        settings = load_settings()
+        if settings.get('finance_system') != 'xero':
+            return jsonify({'error': 'Connect Xero as the finance system to generate sales invoices from delivery notes.'}), 400
+        connector = get_connector(settings)
+        if connector.requires_oauth() and not connector.is_authenticated():
+            return jsonify({'error': 'Xero is not connected. Authorise it in Settings first.'}), 400
+
+        f = request.files.get('file')
+        if not f or not f.filename:
+            return jsonify({'error': 'No file provided'}), 400
+        if Path(f.filename).suffix.lower() not in {'.pdf', '.png', '.jpg', '.jpeg', '.tiff', '.tif', '.webp'}:
+            return jsonify({'error': 'Unsupported file type'}), 400
+
+        storage = settings['app'].get('attachment_storage_path', 'invoices')
+        Path(storage).mkdir(parents=True, exist_ok=True)
+        save_path = str(Path(storage) / f'dn_{uuid.uuid4().hex}_{secure_filename(f.filename)}')
+        f.save(save_path)
+
+        # 1. Read the delivery note with Claude
+        try:
+            from src.invoice_extractor import InvoiceExtractor
+            data = InvoiceExtractor().extract_delivery_note(save_path)
+        except Exception as e:
+            return jsonify({'error': f'Could not read the delivery note: {e}'}), 500
+
+        # 2. Require a signature — this is the trigger to invoice
+        if not data.get('signature_present'):
+            return jsonify({'ok': False, 'stage': 'unsigned', 'extracted': data,
+                            'message': 'No signature detected — the delivery note is not signed, so no invoice was generated.'})
+
+        # 3. Match / create the customer in Xero
+        customer_name = (data.get('customer_name') or '').strip()
+        if not customer_name:
+            return jsonify({'ok': False, 'stage': 'customer', 'extracted': data,
+                            'message': 'Could not read the customer name from the delivery note.'}), 422
+        try:
+            customer_ref = connector.find_or_create_customer(customer_name)
+        except Exception as e:
+            return jsonify({'ok': False, 'stage': 'customer', 'extracted': data,
+                            'message': f'Xero customer lookup failed: {e}'}), 502
+        if not customer_ref:
+            return jsonify({'ok': False, 'stage': 'customer', 'extracted': data,
+                            'message': f'Could not match or create customer "{customer_name}" in Xero.'}), 422
+
+        # 4. Generate the draft sales invoice in Xero
+        inv_date = data.get('delivery_date') or datetime.utcnow().date().isoformat()
+        try:
+            xero_id = connector.post_sales_invoice({
+                'customer_ref': customer_ref,
+                'invoice_date': inv_date,
+                'reference':    data.get('order_reference') or f.filename,
+                'lines':        data.get('lines') or [],
+            })
+        except Exception as e:
+            return jsonify({'ok': False, 'stage': 'invoice', 'extracted': data,
+                            'message': f'{e}'}), 502
+
+        return jsonify({
+            'ok': True,
+            'extracted': data,
+            'customer': customer_name,
+            'xero_invoice_id': xero_id,
+            'xero_link': f'https://go.xero.com/app/invoicing/view/{xero_id}' if xero_id else None,
+        })
 
     # ------------------------------------------------------------------ #
     # Remittances (accounts receivable)
@@ -1146,7 +1248,9 @@ def create_app():
         # rejects with an unhelpful generic validation error.
         if not inv.supplier_ref and inv.supplier_name:
             try:
-                found = connector.find_vendor(inv.supplier_name)
+                # Connectors that can create a supplier (Xero) will do so when
+                # no match exists; others fall back to find-only.
+                found = connector.find_or_create_vendor(inv.supplier_name)
             except Exception as e:
                 raise ValueError(f"{get_system_name()} vendor lookup failed: {e}")
             if found:

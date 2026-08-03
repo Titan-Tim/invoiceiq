@@ -1,0 +1,130 @@
+{% extends "base.html" %}
+{% block title %}Deliver to Invoice{% endblock %}
+{% block page_title %}Deliver to Invoice{% endblock %}
+
+{% block content %}
+<div class="row g-4">
+  <div class="col-lg-5">
+    <div class="card">
+      <div class="card-body">
+        <h6 class="fw-semibold mb-1">Signed delivery note → Xero invoice</h6>
+        <p class="text-muted small mb-3">
+          Upload a signed proof-of-delivery. Invoice-IQ reads the customer, order
+          reference and delivered lines, confirms the note is <strong>signed</strong>,
+          then generates a draft sales invoice in Xero automatically.
+        </p>
+
+        <div id="dropzone" class="border rounded p-4 text-center"
+             style="border-style:dashed !important; cursor:pointer;">
+          <i class="bi bi-cloud-arrow-up fs-2 text-muted"></i>
+          <div class="small text-muted mt-2">Click to choose a delivery note (PDF or image)</div>
+          <div id="filename" class="small fw-semibold mt-1"></div>
+        </div>
+        <input type="file" id="file" accept=".pdf,.png,.jpg,.jpeg,.tiff,.tif,.webp" class="d-none">
+
+        <button id="go" class="btn btn-primary w-100 mt-3" disabled>
+          <i class="bi bi-magic me-1"></i> Generate invoice in Xero
+        </button>
+        <div id="status" class="small text-muted mt-2"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-7">
+    <div id="result" class="d-none"></div>
+    <div id="placeholder" class="text-muted small p-4 text-center">
+      Results appear here — the extracted delivery note and the Xero invoice it creates.
+    </div>
+  </div>
+</div>
+
+<script>
+const fileInput = document.getElementById('file');
+const dropzone  = document.getElementById('dropzone');
+const goBtn     = document.getElementById('go');
+const statusEl  = document.getElementById('status');
+const resultEl  = document.getElementById('result');
+const placeholder = document.getElementById('placeholder');
+
+dropzone.addEventListener('click', () => fileInput.click());
+fileInput.addEventListener('change', () => {
+  if (fileInput.files.length) {
+    document.getElementById('filename').textContent = fileInput.files[0].name;
+    goBtn.disabled = false;
+  }
+});
+
+function money(n) { return (n == null) ? '—' : '£' + Number(n).toLocaleString('en-GB', {minimumFractionDigits: 2, maximumFractionDigits: 2}); }
+function esc(s) { const d = document.createElement('div'); d.textContent = (s == null ? '' : s); return d.innerHTML; }
+
+goBtn.addEventListener('click', async () => {
+  if (!fileInput.files.length) return;
+  goBtn.disabled = true;
+  statusEl.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Reading delivery note and posting to Xero…';
+  resultEl.classList.add('d-none');
+
+  const fd = new FormData();
+  fd.append('file', fileInput.files[0]);
+
+  let r;
+  try {
+    r = await fetch('{{ url_for("api_deliver_to_invoice") }}', { method: 'POST', body: fd }).then(x => x.json());
+  } catch (e) {
+    statusEl.innerHTML = '<span class="text-danger">Network error — please try again.</span>';
+    goBtn.disabled = false;
+    return;
+  }
+
+  statusEl.textContent = '';
+  goBtn.disabled = false;
+  placeholder.classList.add('d-none');
+  resultEl.classList.remove('d-none');
+
+  if (r.error) {
+    resultEl.innerHTML = `<div class="alert alert-warning">${esc(r.error)}</div>`;
+    return;
+  }
+
+  const d = r.extracted || {};
+  const lines = (d.lines || []).map(l => `
+    <tr>
+      <td>${esc(l.description)}</td>
+      <td class="text-end">${l.quantity ?? '—'}</td>
+      <td class="text-end">${money(l.unit_price)}</td>
+    </tr>`).join('');
+
+  const sigBadge = d.signature_present
+    ? `<span class="badge bg-success"><i class="bi bi-pen me-1"></i>Signed${d.signed_by ? ' by ' + esc(d.signed_by) : ''}</span>`
+    : `<span class="badge bg-danger">Not signed</span>`;
+
+  let outcome = '';
+  if (r.ok) {
+    outcome = `<div class="alert alert-success d-flex align-items-center">
+        <i class="bi bi-check-circle-fill me-2"></i>
+        <div>Draft sales invoice created in Xero for <strong>${esc(r.customer)}</strong>.
+        ${r.xero_link ? `<a href="${r.xero_link}" target="_blank" class="alert-link">Open in Xero →</a>` : ''}
+        <div class="small text-muted">If the link doesn't open, find it in Xero under Business → Invoices → Draft.</div>
+        </div>
+      </div>`;
+  } else {
+    outcome = `<div class="alert alert-warning"><i class="bi bi-exclamation-triangle me-2"></i>${esc(r.message)}</div>`;
+  }
+
+  resultEl.innerHTML = `
+    ${outcome}
+    <div class="card"><div class="card-body">
+      <div class="d-flex justify-content-between align-items-start mb-2">
+        <div>
+          <div class="fw-semibold">${esc(d.customer_name) || 'Unknown customer'}</div>
+          <div class="small text-muted">Order ref: ${esc(d.order_reference) || '—'} · Delivered: ${esc(d.delivery_date) || '—'}</div>
+        </div>
+        ${sigBadge}
+      </div>
+      <table class="table table-sm mb-0">
+        <thead><tr><th>Item</th><th class="text-end">Qty</th><th class="text-end">Unit price</th></tr></thead>
+        <tbody>${lines || '<tr><td colspan="3" class="text-muted">No lines read</td></tr>'}</tbody>
+      </table>
+    </div></div>`;
+});
+</script>
+{% endblock %}

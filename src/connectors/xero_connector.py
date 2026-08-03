@@ -194,7 +194,24 @@ class XeroConnector(BaseConnector):
         return self.create_vendor(supplier_name)
 
     def create_vendor(self, supplier_name: str) -> Optional[str]:
-        contact = {'Name': supplier_name, 'IsSupplier': True}
+        return self._create_contact(supplier_name, is_supplier=True)
+
+    def find_or_create_customer(self, customer_name: str,
+                                extra: dict = None) -> Optional[str]:
+        """AR counterpart to find_or_create_vendor. Xero contacts are unified,
+        so the same fuzzy lookup applies; a new contact is flagged IsCustomer."""
+        existing = self.find_vendor(customer_name)
+        if existing:
+            return existing
+        return self._create_contact(customer_name, is_customer=True)
+
+    def _create_contact(self, name: str, is_supplier: bool = False,
+                        is_customer: bool = False) -> Optional[str]:
+        contact = {'Name': name}
+        if is_supplier:
+            contact['IsSupplier'] = True
+        if is_customer:
+            contact['IsCustomer'] = True
         resp = requests.post(
             f"{API_BASE}/Contacts",
             headers=self._headers(),
@@ -202,11 +219,12 @@ class XeroConnector(BaseConnector):
         )
         # A duplicate-name error means someone/something created it in a race
         # (or the fuzzy search missed an exact match) — fall back to a lookup
-        # rather than failing the post.
+        # rather than failing.
         if resp.status_code == 400:
-            found = self.find_vendor(supplier_name)
+            found = self.find_vendor(name)
             if found:
                 return found
+            self._raise_xero_error(resp, 'contact')
         resp.raise_for_status()
         contacts = resp.json().get('Contacts', [])
         return contacts[0].get('ContactID', '') if contacts else None
@@ -264,6 +282,57 @@ class XeroConnector(BaseConnector):
         )
         if resp.status_code >= 400:
             self._raise_xero_error(resp, 'bill')
+        invoices = resp.json().get('Invoices', [])
+        return invoices[0].get('InvoiceID', '') if invoices else ''
+
+    def post_sales_invoice(self, invoice_data: dict) -> str:
+        """Create an ACCREC (sales) invoice — used by the Deliver-to-Invoice
+        flow to raise a customer invoice from a signed delivery note."""
+        sales_account = self.cfg.get('default_sales_account', '200')
+        # Sales invoices default to DRAFT so a human eyeballs them before they
+        # go to the customer; override with sales_post_status='AUTHORISED'.
+        post_status   = self.cfg.get('sales_post_status', 'DRAFT')
+
+        line_items = []
+        for l in (invoice_data.get('lines') or []):
+            qty  = float(l.get('quantity', 1) or 1)
+            item = {
+                'Description': l.get('description', ''),
+                'Quantity':    qty,
+                'AccountCode': sales_account,
+                'TaxType':     'OUTPUT2',   # UK standard rated output VAT (20% on income)
+            }
+            # Delivery notes may carry a unit price or a line total (or neither).
+            if l.get('unit_price') is not None:
+                item['UnitAmount'] = float(l['unit_price'])
+            elif l.get('line_total') is not None:
+                item['UnitAmount'] = round(float(l['line_total']) / qty, 4) if qty else float(l['line_total'])
+            else:
+                item['UnitAmount'] = 0.0
+            line_items.append(item)
+
+        xero_inv = {
+            'Type':            'ACCREC',
+            'Contact':         {'ContactID': invoice_data['customer_ref']},
+            'Date':            str(invoice_data.get('invoice_date') or datetime.now(timezone.utc).date()),
+            'DueDate':         str(self._due_date(invoice_data)),
+            'Reference':       invoice_data.get('reference', ''),
+            'Status':          post_status,
+            'LineAmountTypes': 'Exclusive',
+            'LineItems':       line_items,
+        }
+        # Only set InvoiceNumber if provided; blank lets Xero auto-generate the
+        # next sales invoice number ("Xero generates the invoice").
+        if invoice_data.get('invoice_number'):
+            xero_inv['InvoiceNumber'] = invoice_data['invoice_number']
+
+        resp = requests.post(
+            f"{API_BASE}/Invoices",
+            headers=self._headers(),
+            json={'Invoices': [xero_inv]}
+        )
+        if resp.status_code >= 400:
+            self._raise_xero_error(resp, 'sales invoice')
         invoices = resp.json().get('Invoices', [])
         return invoices[0].get('InvoiceID', '') if invoices else ''
 

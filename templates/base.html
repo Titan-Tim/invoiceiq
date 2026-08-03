@@ -63,6 +63,12 @@
         </a>
       </li>
       <li class="nav-item">
+        <a class="nav-link {% if request.endpoint == 'deliver_to_invoice' %}active{% endif %}"
+           href="{{ url_for('deliver_to_invoice') }}">
+          <i class="bi bi-truck"></i> Deliver to Invoice
+        </a>
+      </li>
+      <li class="nav-item">
         <a class="nav-link {% if request.endpoint == 'approvals' %}active{% endif %}"
            href="{{ url_for('approvals') }}">
           <i class="bi bi-check2-circle"></i> Approvals

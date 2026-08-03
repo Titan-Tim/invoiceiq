@@ -68,6 +68,32 @@ Rules:
 - currency defaults to GBP if not shown."""
 
 
+DELIVERY_NOTE_PROMPT = """You are an expert order-fulfilment clerk. This is a DELIVERY NOTE (proof of delivery) for goods WE dispatched to a customer. It should be signed by the customer to confirm receipt, and we invoice from it.
+
+Return ONLY a JSON object — no explanation, no markdown — with this exact structure:
+{
+  "customer_name": "string",
+  "order_reference": "string or null",
+  "delivery_date": "YYYY-MM-DD or null",
+  "signature_present": true,
+  "signed_by": "string or null",
+  "currency": "GBP",
+  "lines": [
+    { "description": "string", "quantity": number, "unit_price": number or null, "line_total": number or null }
+  ],
+  "confidence": 0.95,
+  "notes": "any issues or uncertainties"
+}
+
+Rules:
+- customer_name is the party the goods were DELIVERED TO (the "Deliver to" / "Customer" address), NOT our own company.
+- order_reference is the originating order / PO number this delivery fulfils (labels like "Order No", "Order Ref", "PO", "Your Ref").
+- signature_present: look carefully for a handwritten signature in a signature box or "Received by / Signature" area. Return true ONLY if you can see an actual handwritten mark/signature, false if the box is empty. This is the trigger for invoicing, so be accurate.
+- signed_by: the printed name of the person who signed, if shown.
+- lines: each delivered item with its quantity. Include unit_price and/or line_total only if the note shows values (delivery notes often omit prices — use null when absent).
+- Numbers must be numeric (not strings). Use null for fields not found. currency defaults to GBP."""
+
+
 class InvoiceExtractor:
     def __init__(self):
         self.settings = load_settings()
@@ -79,6 +105,9 @@ class InvoiceExtractor:
 
     def extract_remittance(self, file_path: str) -> dict:
         return self._extract_with_prompt(file_path, REMITTANCE_PROMPT)
+
+    def extract_delivery_note(self, file_path: str) -> dict:
+        return self._extract_with_prompt(file_path, DELIVERY_NOTE_PROMPT)
 
     def _extract_with_prompt(self, file_path: str, prompt: str) -> dict:
         path = Path(file_path)

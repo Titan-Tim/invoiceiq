@@ -9,6 +9,7 @@ Pillow>=10.2.0
 python-dotenv>=1.0.0
 Werkzeug>=3.0.0
 certifi>=2024.2.2
+cryptography>=42.0        # on-prem licence verification (Sol-IQ @sol-iq/licence; imported only when INVOICEIQ_LICENCE_ENFORCED)
 
 # Windows-only — Solo (on-premises) build
 pywin32>=306; sys_platform == 'win32'

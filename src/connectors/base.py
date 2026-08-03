@@ -66,6 +66,28 @@ class BaseConnector(ABC):
         """
         return self.find_vendor(supplier_name)
 
+    def find_or_create_customer(self, customer_name: str,
+                                extra: dict = None) -> Optional[str]:
+        """
+        Accounts-receivable counterpart to find_or_create_vendor: find a
+        customer by name, creating one where supported. Default is find-only.
+        Returns the customer reference / ID string, or None.
+        """
+        return self.find_vendor(customer_name)
+
+    def post_sales_invoice(self, invoice_data: dict) -> str:
+        """
+        Create a sales / accounts-receivable invoice (e.g. generated from a
+        signed delivery note). Only AR-capable connectors implement this.
+
+        invoice_data keys: customer_ref, invoice_number (optional — blank lets
+        the system auto-number), invoice_date, due_date (optional), reference
+        (optional), lines[] (description, quantity, unit_price/line_total).
+
+        Returns the created invoice's reference / ID string.
+        """
+        raise NotImplementedError(f"{self.system_name} does not support sales invoices")
+
     @abstractmethod
     def post_invoice(self, invoice_data: dict) -> str:
         """
