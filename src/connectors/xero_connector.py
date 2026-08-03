@@ -7,7 +7,7 @@ import base64
 import json
 import re
 import threading
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, date, timezone, timedelta
 from difflib import SequenceMatcher
 from pathlib import Path
 from typing import Optional
@@ -246,22 +246,61 @@ class XeroConnector(BaseConnector):
             'Reference':       invoice_data.get('po_reference', ''),
             'Status':          post_status,
             'LineAmountTypes': 'Exclusive',
-            'SubTotal':        float(invoice_data['subtotal']),
-            'TotalTax':        float(invoice_data['vat_amount']),
-            'Total':           float(invoice_data['total_amount']),
+            # SubTotal/TotalTax/Total are deliberately omitted — with Exclusive
+            # line amounts Xero computes them from the LineItems + TaxType. Sending
+            # our own extracted figures risks a penny-level mismatch that Xero
+            # rejects with a 400.
             'LineItems':       line_items,
         }
-        if invoice_data.get('due_date'):
-            xero_inv['DueDate'] = str(invoice_data['due_date'])
+        # Xero (depending on org settings) requires a DueDate on bills. Use the
+        # extracted one; otherwise fall back to invoice date + payment terms so
+        # the post never fails on a missing due date.
+        xero_inv['DueDate'] = str(self._due_date(invoice_data))
 
         resp = requests.post(
             f"{API_BASE}/Invoices",
             headers=self._headers(),
             json={'Invoices': [xero_inv]}
         )
-        resp.raise_for_status()
+        if resp.status_code >= 400:
+            self._raise_xero_error(resp, 'bill')
         invoices = resp.json().get('Invoices', [])
         return invoices[0].get('InvoiceID', '') if invoices else ''
+
+    def _due_date(self, invoice_data: dict):
+        """Return the invoice's due date, or invoice date + payment terms when
+        none was extracted (Xero can reject a bill with no DueDate)."""
+        due = invoice_data.get('due_date')
+        if due:
+            return due
+        terms_days = int(self.cfg.get('default_payment_terms_days', 30))
+        base = invoice_data.get('invoice_date')
+        if isinstance(base, str):
+            base = date.fromisoformat(base[:10])
+        elif isinstance(base, datetime):
+            base = base.date()
+        if not isinstance(base, date):
+            base = datetime.now(timezone.utc).date()
+        return base + timedelta(days=terms_days)
+
+    @staticmethod
+    def _raise_xero_error(resp, context: str):
+        """Turn Xero's opaque 4xx into the actual validation message(s) so a
+        failed post says *why* (bad account code, invalid tax type, …) instead
+        of a bare '400 Bad Request'."""
+        try:
+            data = resp.json()
+        except Exception:
+            raise ValueError(f"Xero rejected the {context} ({resp.status_code}): {resp.text[:300]}")
+        msgs = []
+        for el in (data.get('Elements') or []):
+            for ve in (el.get('ValidationErrors') or []):
+                if ve.get('Message'):
+                    msgs.append(ve['Message'])
+        if not msgs and data.get('Message'):
+            msgs.append(data['Message'])
+        detail = '; '.join(msgs) if msgs else resp.text[:300]
+        raise ValueError(f"Xero rejected the {context}: {detail}")
 
     # ------------------------------------------------------------------ #
     # Internal helpers
