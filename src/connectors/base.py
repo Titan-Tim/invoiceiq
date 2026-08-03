@@ -56,6 +56,16 @@ class BaseConnector(ABC):
         Returns the vendor reference / ID string, or None if not found.
         """
 
+    def find_or_create_vendor(self, supplier_name: str,
+                              invoice_data: dict = None) -> Optional[str]:
+        """
+        Find a vendor by name, creating one if the finance system supports it
+        and no match exists. Default behaviour is find-only — connectors that
+        can safely create a supplier (Xero, QBO) override this. Returns the
+        vendor reference / ID string, or None.
+        """
+        return self.find_vendor(supplier_name)
+
     @abstractmethod
     def post_invoice(self, invoice_data: dict) -> str:
         """

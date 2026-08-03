@@ -37,7 +37,8 @@ DEFAULT_SETTINGS = {
         "client_id":               "",
         "client_secret":           "",
         "redirect_uri":            "http://localhost:5000/auth/xero/callback",
-        "default_expense_account": "300"
+        "default_expense_account": "300",
+        "post_status":             "AUTHORISED"  # "DRAFT" to post bills for review (safer for demos/pilots)
     },
     "ledgeriq": {
         "api_base_url":            "https://ledger.sol-iq.co.uk",

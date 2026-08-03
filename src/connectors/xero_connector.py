@@ -25,8 +25,12 @@ AUTH_URL      = 'https://login.xero.com/identity/connect/authorize'
 TOKEN_URL     = 'https://identity.xero.com/connect/token'
 CONNECTIONS   = 'https://api.xero.com/connections'
 API_BASE      = 'https://api.xero.com/api.xro/2.0'
+# Granular scopes (required for apps created on/after 2 Mar 2026 — broad
+# scopes like accounting.transactions are rejected with invalid_scope).
+# accounting.invoices covers ACCPAY bills + purchase orders; contacts and
+# settings are unchanged in the granular model.
 SCOPE         = ('offline_access openid profile email '
-                 'accounting.transactions accounting.contacts accounting.settings')
+                 'accounting.invoices accounting.contacts accounting.settings')
 
 # Xero rotates the refresh token on every use and invalidates the old one
 # immediately. The background email-poll scheduler and a user action in the
@@ -179,8 +183,41 @@ class XeroConnector(BaseConnector):
 
         return best_id if best_score >= 0.70 else None
 
+    def find_or_create_vendor(self, supplier_name: str,
+                              invoice_data: dict = None) -> Optional[str]:
+        """Match an existing Xero contact, or create one if none is found.
+        Keeps a live demo (and real usage) from stalling when the AP invoice
+        is from a supplier not yet in Xero — the bill can still post."""
+        existing = self.find_vendor(supplier_name)
+        if existing:
+            return existing
+        return self.create_vendor(supplier_name)
+
+    def create_vendor(self, supplier_name: str) -> Optional[str]:
+        contact = {'Name': supplier_name, 'IsSupplier': True}
+        resp = requests.post(
+            f"{API_BASE}/Contacts",
+            headers=self._headers(),
+            json={'Contacts': [contact]},
+        )
+        # A duplicate-name error means someone/something created it in a race
+        # (or the fuzzy search missed an exact match) — fall back to a lookup
+        # rather than failing the post.
+        if resp.status_code == 400:
+            found = self.find_vendor(supplier_name)
+            if found:
+                return found
+        resp.raise_for_status()
+        contacts = resp.json().get('Contacts', [])
+        return contacts[0].get('ContactID', '') if contacts else None
+
     def post_invoice(self, invoice_data: dict) -> str:
         account_code = self.cfg.get('default_expense_account', '300')
+        # 'DRAFT' posts the bill for review (nothing hits the ledger until a
+        # human approves it in Xero) — the safe choice for demos and pilots.
+        # 'AUTHORISED' posts it straight to awaiting-payment. Configurable per
+        # install; defaults to AUTHORISED to preserve existing behaviour.
+        post_status = self.cfg.get('post_status', 'AUTHORISED')
 
         if invoice_data.get('lines'):
             line_items = [{
@@ -207,7 +244,7 @@ class XeroConnector(BaseConnector):
             'Date':            str(invoice_data['invoice_date']),
             'InvoiceNumber':   invoice_data.get('invoice_number', ''),
             'Reference':       invoice_data.get('po_reference', ''),
-            'Status':          'AUTHORISED',
+            'Status':          post_status,
             'LineAmountTypes': 'Exclusive',
             'SubTotal':        float(invoice_data['subtotal']),
             'TotalTax':        float(invoice_data['vat_amount']),
