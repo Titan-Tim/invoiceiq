@@ -58,6 +58,15 @@ def _run_migrations():
             db.session.execute(text('ALTER TABLE invoice_lines ADD COLUMN account_code VARCHAR(50)'))
             db.session.commit()
 
+    # Four-tier role model: rename legacy 'viewer' -> 'standard', and (one-time,
+    # only while no superadmin exists yet) promote existing 'admin' users to
+    # 'superadmin' so the top-level admin keeps full access under the new tiers.
+    db.session.execute(text("UPDATE users SET role='standard' WHERE role='viewer'"))
+    has_super = db.session.execute(text("SELECT COUNT(*) FROM users WHERE role='superadmin'")).scalar()
+    if not has_super:
+        db.session.execute(text("UPDATE users SET role='superadmin' WHERE role='admin'"))
+    db.session.commit()
+
 
 def create_app():
     app = Flask(__name__)
@@ -110,10 +119,15 @@ def create_app():
     def inject_globals():
         settings = load_settings()
         currency_symbols = {'GBP': '£', 'USD': '$', 'EUR': '€'}
+        uid = session.get('user_id')
+        cu  = db.session.get(User, uid) if uid else None
         return {
             'finance_system_name': get_system_name(settings),
             'finance_system_key':  settings.get('finance_system', 'sage'),
             'currency_symbol':     currency_symbols.get(settings.get('app', {}).get('currency', 'GBP'), '£'),
+            'current_user_name':   (cu.name if cu else session.get('user_name', '')),
+            'current_user_email':  (cu.email if cu else ''),
+            'user_role':           (cu.role if cu else session.get('user_role', 'standard')),
         }
 
     # ------------------------------------------------------------------ #
@@ -122,6 +136,33 @@ def create_app():
 
     def _user_name():  return session.get('user_name', 'System')
     def _user_id():    return session.get('user_id')
+
+    # Role model: superadmin (all settings) > admin (user management) >
+    # approver (approves invoices) / standard (view only).
+    VALID_ROLES = ('superadmin', 'admin', 'approver', 'standard')
+
+    def _current_role():
+        """Authoritative role read from the DB (not the possibly-stale session),
+        so a role change — or the admin->superadmin migration — takes effect
+        without the user needing to log out and back in."""
+        uid = session.get('user_id')
+        if uid:
+            u = db.session.get(User, uid)
+            if u:
+                return u.role
+        return session.get('user_role', 'standard')
+
+    def _is_superadmin(): return _current_role() == 'superadmin'
+    def _is_admin_plus(): return _current_role() in ('admin', 'superadmin')
+
+    def _settings_guard():
+        """Guard for connection/system settings endpoints. The first-run wizard
+        has no admin yet, so it's exempt; after setup, super admin only."""
+        if not load_settings().get('app', {}).get('setup_complete'):
+            return None
+        if not _is_superadmin():
+            return jsonify({'error': 'Only a super admin can change connection settings.'}), 403
+        return None
 
     PUBLIC_ENDPOINTS = {'login', 'forgot_password', 'healthz', 'static', 'privacy_policy', 'terms_of_use'}
     WIZARD_PATH_PREFIXES = ('/api/wizard', '/api/settings', '/auth/')
@@ -210,8 +251,8 @@ def create_app():
             # not a login gate. Existing customers go straight to the dashboard.
             if not session.get('user_id'):
                 return redirect(url_for('login'))
-            if session.get('user_role') != 'admin':
-                flash('Only admins can change connection settings.', 'warning')
+            if not _is_superadmin():
+                flash('Only a super admin can change connection settings.', 'warning')
                 return redirect(url_for('dashboard'))
             reconfigure = True
         step = request.args.get('step', '1')
@@ -303,7 +344,7 @@ def create_app():
     def settings_page():
         return render_template('settings.html',
                                user_name=session.get('user_name'),
-                               user_role=session.get('user_role', 'admin'))
+                               user_role=_current_role())
 
     # ------------------------------------------------------------------ #
     # OAuth routes — QuickBooks Online
@@ -968,6 +1009,8 @@ def create_app():
 
     @app.route('/api/auth/disconnect', methods=['POST'])
     def api_auth_disconnect():
+        guard = _settings_guard()
+        if guard: return guard
         try:
             get_connector().disconnect()
             return jsonify({'success': True})
@@ -994,6 +1037,8 @@ def create_app():
 
     @app.route('/api/settings', methods=['POST'])
     def api_save_settings():
+        guard = _settings_guard()
+        if guard: return guard
         new     = request.get_json()
         current = load_settings()
         # Preserve masked values
@@ -1013,6 +1058,8 @@ def create_app():
     @app.route('/api/settings/partial', methods=['POST'])
     def api_settings_partial():
         """Merge a partial settings dict into stored settings (used by wizard)."""
+        guard = _settings_guard()
+        if guard: return guard
         patch   = request.get_json() or {}
         current = load_settings()
         from src.config_manager import _deep_merge
@@ -1055,7 +1102,7 @@ def create_app():
             user = User(email=email, name=name or 'Admin')
             db.session.add(user)
         user.name      = name or user.name or 'Admin'
-        user.role      = 'admin'
+        user.role      = 'superadmin'   # the first/setup user is the super admin
         user.is_active = True
         user.set_password(password)
         db.session.commit()
@@ -1138,6 +1185,8 @@ def create_app():
 
     @app.route('/api/users', methods=['POST'])
     def api_create_user():
+        if not _is_admin_plus():
+            return jsonify({'error': 'Only an admin can manage users.'}), 403
         data     = request.get_json() or {}
         name     = data.get('name', '').strip()
         email    = data.get('email', '').strip().lower()
@@ -1146,8 +1195,10 @@ def create_app():
 
         if not name or not email:
             return jsonify({'error': 'Name and email are required'}), 400
-        if role not in ('admin', 'approver', 'viewer'):
+        if role not in VALID_ROLES:
             return jsonify({'error': 'Invalid role'}), 400
+        if role == 'superadmin' and not _is_superadmin():
+            return jsonify({'error': 'Only a super admin can grant the Super admin role.'}), 403
         if User.query.filter_by(email=email).first():
             return jsonify({'error': 'A user with that email already exists'}), 400
         if not password or len(password) < 8:
@@ -1161,16 +1212,23 @@ def create_app():
 
     @app.route('/api/users/<int:user_id>', methods=['PUT'])
     def api_update_user(user_id):
+        if not _is_admin_plus():
+            return jsonify({'error': 'Only an admin can manage users.'}), 403
         user = db.get_or_404(User, user_id)
+        # A standard admin cannot modify a super admin (no privilege escalation).
+        if user.role == 'superadmin' and not _is_superadmin():
+            return jsonify({'error': 'Only a super admin can modify a super admin.'}), 403
         data = request.get_json() or {}
 
         if 'name' in data and data['name'].strip():
             user.name = data['name'].strip()
         if 'role' in data:
-            if data['role'] not in ('admin', 'approver', 'viewer'):
+            if data['role'] not in VALID_ROLES:
                 return jsonify({'error': 'Invalid role'}), 400
-            if user.id == session.get('user_id') and data['role'] != 'admin':
-                return jsonify({'error': "You can't remove your own admin role"}), 400
+            if data['role'] == 'superadmin' and not _is_superadmin():
+                return jsonify({'error': 'Only a super admin can grant the Super admin role.'}), 403
+            if user.id == session.get('user_id') and data['role'] not in ('admin', 'superadmin'):
+                return jsonify({'error': "You can't remove your own admin access"}), 400
             user.role = data['role']
         if 'is_active' in data:
             if user.id == session.get('user_id') and not data['is_active']:
@@ -1187,6 +1245,71 @@ def create_app():
     # ------------------------------------------------------------------ #
     # Internal helpers
     # ------------------------------------------------------------------ #
+
+    @app.route('/api/support', methods=['POST'])
+    def api_support():
+        """In-app 'Raise a support ticket' form. Issues a reference, emails the
+        ticket to the support inbox with the reporter's email as reply-to."""
+        import re as _re, secrets as _secrets
+        data     = request.get_json(silent=True) or {}
+        name     = (data.get('name') or '').strip()
+        email    = (data.get('email') or '').strip()
+        phone    = (data.get('phone') or '').strip()
+        category = (data.get('category') or 'Question').strip() or 'Question'
+        subject  = (data.get('subject') or '').strip()
+        message  = (data.get('message') or '').strip()
+        page_url = (data.get('pageUrl') or '')[:500]
+
+        if not (name and email and phone and subject and message):
+            return jsonify({'error': 'Please add your name, contact email, phone number, a subject and a description.'}), 400
+        if not _re.match(r'^[^\s@]+@[^\s@]+\.[^\s@]+$', email):
+            return jsonify({'error': 'That contact email address does not look right.'}), 400
+
+        reference = 'IIQ-' + _secrets.token_hex(4).upper()
+        try:
+            _send_support_ticket(reference, name[:120], email[:200], phone[:40],
+                                 category[:40], subject[:200], message[:5000], page_url)
+        except Exception as e:
+            app.logger.error(f"Support ticket send failed: {e}")
+            return jsonify({'error': 'Could not send your ticket right now — please email support@sol-iq.co.uk directly.'}), 502
+        return jsonify({'ok': True, 'reference': reference})
+
+    def _send_support_ticket(reference, name, email, phone, category, subject, message, page_url):
+        api_key = os.environ.get('RESEND_API_KEY')
+        if not api_key:
+            raise RuntimeError("RESEND_API_KEY not configured")
+        support_to = os.environ.get('SUPPORT_EMAIL', 'info@sol-iq.co.uk')
+        esc = lambda s: (s or '').replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+        rows = ''.join(
+            f'<tr><td style="padding:4px 10px;color:#64748b;">{k}</td>'
+            f'<td style="padding:4px 10px;color:#0f172a;font-weight:600;">{esc(v)}</td></tr>'
+            for k, v in [
+                ('Reference', reference), ('Type', category), ('From', name),
+                ('Email', email), ('Phone', phone),
+                ('Account', session.get('user_name', 'unknown')),
+                ('Page', page_url or '—'),
+            ])
+        resp = requests.post(
+            "https://api.resend.com/emails",
+            headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+            json={
+                "from": os.environ.get('EMAIL_FROM', 'Invoice-IQ <no-reply@sol-iq.co.uk>'),
+                "to": support_to,
+                "reply_to": email,
+                "subject": f"[Invoice-IQ] {reference} · {category}: {subject}",
+                "html": f"""
+                  <div style="font-family:Arial,Helvetica,sans-serif;color:#1e293b;max-width:560px;margin:0 auto;">
+                    <h2 style="margin:0 0 4px;">Support ticket {reference}</h2>
+                    <p style="font-size:14px;color:#475569;margin:0 0 12px;">{esc(subject)}</p>
+                    <table style="width:100%;border-collapse:collapse;font-size:13px;background:#f8fafc;border-radius:8px;">{rows}</table>
+                    <div style="margin:16px 0;padding:14px;background:#fff;border:1px solid #e2e8f0;border-radius:8px;font-size:14px;white-space:pre-wrap;">{esc(message)}</div>
+                    <p style="font-size:12px;color:#94a3b8;">Reply to this email to respond directly to {esc(name)}.</p>
+                  </div>""",
+            },
+            timeout=10,
+        )
+        if not resp.ok:
+            raise RuntimeError(f"{resp.status_code}: {resp.text[:300]}")
 
     def _send_password_reset_email(user: User, temp_password: str):
         api_key = os.environ.get('RESEND_API_KEY')

@@ -95,6 +95,13 @@
           <i class="bi bi-gear"></i> Settings
         </a>
       </li>
+      {% if user_role in ['admin', 'superadmin'] %}
+      <li class="nav-item">
+        <a class="nav-link" href="#" data-bs-toggle="modal" data-bs-target="#supportModal">
+          <i class="bi bi-life-preserver"></i> Support
+        </a>
+      </li>
+      {% endif %}
     </ul>
     <div class="sidebar-footer">
       <i class="bi bi-person-circle me-2"></i>
@@ -138,6 +145,119 @@
     </div>
   </div>
 </div>
+
+<!-- Support ticket modal -->
+<div class="modal fade" id="supportModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="bi bi-life-preserver me-2 text-primary"></i>Raise a support ticket</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+
+      <div class="modal-body">
+        <!-- Form -->
+        <div id="sup-form">
+          <p class="text-muted small mb-3">Tell us what you need help with and our support team will pick it up.</p>
+          <div class="row g-2">
+            <div class="col-6">
+              <label class="form-label small fw-medium">Your name</label>
+              <input id="sup-name" class="form-control form-control-sm" maxlength="120" value="{{ current_user_name }}">
+            </div>
+            <div class="col-6">
+              <label class="form-label small fw-medium">Phone number</label>
+              <input id="sup-phone" type="tel" class="form-control form-control-sm" placeholder="e.g. 07700 900123" maxlength="40">
+            </div>
+          </div>
+          <div class="mt-2">
+            <label class="form-label small fw-medium">Contact email</label>
+            <input id="sup-email" type="email" class="form-control form-control-sm" maxlength="200" value="{{ current_user_email }}">
+          </div>
+          <div class="row g-2 mt-0">
+            <div class="col-5">
+              <label class="form-label small fw-medium">Type</label>
+              <select id="sup-category" class="form-select form-select-sm">
+                <option>Question</option><option>Problem</option>
+                <option>Bug report</option><option>Feature request</option>
+              </select>
+            </div>
+            <div class="col-7">
+              <label class="form-label small fw-medium">Subject</label>
+              <input id="sup-subject" class="form-control form-control-sm" placeholder="A short summary" maxlength="200">
+            </div>
+          </div>
+          <div class="mt-2">
+            <label class="form-label small fw-medium">Description</label>
+            <textarea id="sup-message" class="form-control form-control-sm" rows="4" maxlength="5000"
+              placeholder="What happened, and what did you expect? Include any error messages."></textarea>
+          </div>
+          <div id="sup-error" class="text-danger small mt-2" style="display:none"></div>
+          <button id="sup-submit" class="btn btn-primary w-100 mt-3">Raise ticket</button>
+          <div class="text-center small text-muted mt-3 pt-2 border-top">
+            <i class="bi bi-envelope me-1"></i>Or email us at
+            <a href="mailto:info@sol-iq.co.uk">support@sol-iq.co.uk</a>
+          </div>
+        </div>
+
+        <!-- Success -->
+        <div id="sup-success" class="text-center py-4" style="display:none">
+          <i class="bi bi-check-circle-fill text-success" style="font-size:2.4rem"></i>
+          <p class="fw-semibold mt-2 mb-1">Your ticket has been raised.</p>
+          <p class="text-muted small mb-3">Our support team will be in touch. Please quote your reference:</p>
+          <div class="d-inline-block px-3 py-2 rounded bg-light font-monospace fw-bold" id="sup-ref"></div>
+          <div><button class="btn btn-primary mt-4" data-bs-dismiss="modal">Close</button></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  const el = id => document.getElementById(id);
+  const modalEl = el('supportModal');
+  if (!modalEl) return;
+
+  modalEl.addEventListener('show.bs.modal', () => {
+    el('sup-form').style.display = '';
+    el('sup-success').style.display = 'none';
+    el('sup-error').style.display = 'none';
+    ['sup-phone','sup-subject','sup-message'].forEach(i => el(i).value = '');
+    el('sup-category').value = 'Question';
+    el('sup-submit').disabled = false;
+    el('sup-submit').textContent = 'Raise ticket';
+  });
+
+  el('sup-submit').addEventListener('click', async () => {
+    const payload = {
+      name: el('sup-name').value.trim(), email: el('sup-email').value.trim(),
+      phone: el('sup-phone').value.trim(), category: el('sup-category').value,
+      subject: el('sup-subject').value.trim(), message: el('sup-message').value.trim(),
+      pageUrl: window.location.href,
+    };
+    if (!payload.name || !payload.email || !payload.phone || !payload.subject || !payload.message) {
+      el('sup-error').textContent = 'Please add your name, contact email, phone number, a subject and a description.';
+      el('sup-error').style.display = ''; return;
+    }
+    el('sup-error').style.display = 'none';
+    el('sup-submit').disabled = true; el('sup-submit').textContent = 'Raising ticket…';
+    try {
+      const r = await fetch('{{ url_for("api_support") }}', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      }).then(x => x.json());
+      if (!r.ok) throw new Error(r.error || 'Could not raise your ticket.');
+      el('sup-ref').textContent = r.reference;
+      el('sup-form').style.display = 'none';
+      el('sup-success').style.display = '';
+    } catch (e) {
+      el('sup-error').textContent = e.message;
+      el('sup-error').style.display = '';
+      el('sup-submit').disabled = false; el('sup-submit').textContent = 'Raise ticket';
+    }
+  });
+})();
+</script>
 
 <!-- Toast -->
 <div class="position-fixed bottom-0 end-0 p-3" style="z-index:1100">

@@ -11,7 +11,7 @@ class User(db.Model):
     name = db.Column(db.String(100), nullable=False)
     email = db.Column(db.String(200), unique=True)
     password_hash = db.Column(db.String(255))
-    role = db.Column(db.String(50), default='approver')  # admin, approver, viewer
+    role = db.Column(db.String(50), default='approver')  # superadmin, admin, approver, standard
     is_active = db.Column(db.Boolean, default=True)
     must_change_password = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)

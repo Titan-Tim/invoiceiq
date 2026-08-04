@@ -44,7 +44,8 @@ class ApprovalWorkflow:
             # to the first active admin/approver, so invoices never end up
             # flagged "awaiting approval" with nobody actually assigned.
             user = User.query.filter(
-                User.is_active == True, User.role.in_(('admin', 'approver'))
+                User.is_active == True,
+                User.role.in_(('superadmin', 'admin', 'approver'))
             ).order_by(User.id).first()
 
         if user:

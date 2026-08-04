@@ -8,14 +8,18 @@
   <!-- Nav -->
   <div class="col-lg-2">
     <div class="settings-nav nav flex-column">
-      <a class="nav-link active" data-tab="system"><i class="bi bi-hdd-stack me-2"></i>Finance System</a>
+      {% if user_role == 'superadmin' %}
+      <a class="nav-link" data-tab="system"><i class="bi bi-hdd-stack me-2"></i>Finance System</a>
       <a class="nav-link" data-tab="email"><i class="bi bi-envelope me-2"></i>Email</a>
       <a class="nav-link" data-tab="po"><i class="bi bi-file-earmark-text me-2"></i>PO Source</a>
       <a class="nav-link" data-tab="approval"><i class="bi bi-person-check me-2"></i>Approval</a>
       <a class="nav-link" data-tab="ai"><i class="bi bi-cpu me-2"></i>AI / Claude</a>
       <a class="nav-link" data-tab="integrations"><i class="bi bi-plug me-2"></i>Integrations</a>
       <a class="nav-link" data-tab="app"><i class="bi bi-sliders me-2"></i>General</a>
+      {% endif %}
+      {% if user_role in ['admin', 'superadmin'] %}
       <a class="nav-link" data-tab="users"><i class="bi bi-people me-2"></i>Users</a>
+      {% endif %}
       <a class="nav-link" data-tab="account"><i class="bi bi-shield-lock me-2"></i>My Account</a>
     </div>
   </div>
@@ -466,9 +470,10 @@
             <div class="mb-3">
               <label class="form-label">Role</label>
               <select class="form-select" id="user-role">
+                <option value="standard">Standard</option>
                 <option value="approver">Approver</option>
                 <option value="admin">Admin</option>
-                <option value="viewer">Viewer</option>
+                {% if user_role == 'superadmin' %}<option value="superadmin">Super admin</option>{% endif %}
               </select>
             </div>
             <div class="form-check form-switch d-none" id="user-active-group">
@@ -704,7 +709,8 @@ function renderUsersTable() {
   const container = document.getElementById('users-table');
   if (!allUsers.length) { container.innerHTML = '<p class="text-muted small">No users yet.</p>'; return; }
 
-  const roleBadge = { admin: 'primary', approver: 'success', viewer: 'secondary' };
+  const roleBadge = { superadmin: 'danger', admin: 'primary', approver: 'success', standard: 'secondary' };
+  const roleLabel = { superadmin: 'Super admin', admin: 'Admin', approver: 'Approver', standard: 'Standard' };
   container.innerHTML = `
     <table class="table align-middle">
       <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Status</th><th></th></tr></thead>
@@ -713,7 +719,7 @@ function renderUsersTable() {
           <tr>
             <td>${u.name}</td>
             <td class="text-muted">${u.email || '—'}</td>
-            <td><span class="badge bg-${roleBadge[u.role] || 'secondary'}">${u.role}</span></td>
+            <td><span class="badge bg-${roleBadge[u.role] || 'secondary'}">${roleLabel[u.role] || u.role}</span></td>
             <td>${u.is_active
               ? '<span class="text-success small"><i class="bi bi-check-circle me-1"></i>Active</span>'
               : '<span class="text-muted small"><i class="bi bi-slash-circle me-1"></i>Inactive</span>'}</td>
@@ -1062,6 +1068,13 @@ function copyField(id) {
 }
 
 loadSettings();
+
+// Land on the first tab this role can actually see (super admin: Finance
+// System; admin: Users; approver/standard: My Account).
+(function () {
+  const first = document.querySelector('.settings-nav .nav-link');
+  if (first) first.click();
+})();
 </script>
 
 <style>
