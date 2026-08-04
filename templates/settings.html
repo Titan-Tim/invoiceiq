@@ -746,7 +746,7 @@ function openUserModal(userId) {
   document.getElementById('user-edit-id').value = user ? user.id : '';
   document.getElementById('user-name').value = user ? user.name : '';
   document.getElementById('user-email').value = user ? user.email : '';
-  document.getElementById('user-email').disabled = !!user;
+  document.getElementById('user-email').disabled = false;
   document.getElementById('user-password').value = '';
   document.getElementById('user-password').placeholder = user ? 'Leave blank to keep current password' : 'At least 8 characters';
   document.getElementById('user-password-label').textContent = user ? 'New Password (optional)' : 'Password';
@@ -770,13 +770,13 @@ document.getElementById('btn-save-user').addEventListener('click', async () => {
 
   const showErr = (msg) => { errEl.textContent = msg; errEl.classList.remove('d-none'); };
   if (!name) { showErr('Name is required.'); return; }
-  if (!id && !email) { showErr('Email is required.'); return; }
+  if (!email) { showErr('Email is required.'); return; }
   if (password && password.length < 8) { showErr('Password must be at least 8 characters.'); return; }
   if (!id && !password) { showErr('Password is required for a new user.'); return; }
 
   let resp;
   if (id) {
-    const body = { name, role, is_active: document.getElementById('user-active').checked };
+    const body = { name, email, role, is_active: document.getElementById('user-active').checked };
     if (password) body.password = password;
     resp = await fetch(`/api/users/${id}`, {
       method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),

@@ -1222,6 +1222,15 @@ def create_app():
 
         if 'name' in data and data['name'].strip():
             user.name = data['name'].strip()
+        if 'email' in data:
+            import re as _re
+            new_email = (data['email'] or '').strip().lower()
+            if not _re.match(r'^[^\s@]+@[^\s@]+\.[^\s@]+$', new_email):
+                return jsonify({'error': 'That email address does not look right.'}), 400
+            clash = User.query.filter_by(email=new_email).first()
+            if clash and clash.id != user.id:
+                return jsonify({'error': 'Another user already has that email address.'}), 400
+            user.email = new_email
         if 'role' in data:
             if data['role'] not in VALID_ROLES:
                 return jsonify({'error': 'Invalid role'}), 400
