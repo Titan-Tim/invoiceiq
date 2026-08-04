@@ -323,6 +323,18 @@
           <button class="btn btn-outline-secondary btn-sm mt-2" id="btn-scan-folder">
             <i class="bi bi-arrow-repeat me-1"></i>Scan Folder Now
           </button>
+
+          <hr class="my-3">
+          <label class="form-label mb-1">Or upload PO PDFs directly</label>
+          <div class="form-text mb-2">
+            On a cloud/hosted install there's no local Windows folder to scan — upload the PO PDFs
+            here and they'll be read and indexed exactly the same way.
+          </div>
+          <input type="file" id="po-upload-input" accept=".pdf" multiple class="d-none">
+          <button class="btn btn-primary btn-sm" id="btn-upload-pos">
+            <i class="bi bi-cloud-arrow-up me-1"></i>Upload PO PDFs
+          </button>
+          <span id="po-upload-result" class="small ms-2"></span>
         </div>
       </div>
     </div>
@@ -1099,6 +1111,28 @@ document.getElementById('btn-clear-docs')?.addEventListener('click', async () =>
   } else {
     el.textContent = r.error || 'Could not clear documents.';
     el.className = 'small ms-2 text-danger';
+  }
+});
+
+// Upload PO PDFs directly (cloud-friendly alternative to scanning a server folder)
+document.getElementById('btn-upload-pos')?.addEventListener('click',
+  () => document.getElementById('po-upload-input').click());
+document.getElementById('po-upload-input')?.addEventListener('change', async (e) => {
+  const files = e.target.files;
+  if (!files.length) return;
+  const res = document.getElementById('po-upload-result');
+  res.textContent = `Reading ${files.length} PO(s)…`; res.className = 'small ms-2 text-muted';
+  const fd = new FormData();
+  for (const f of files) fd.append('files', f);
+  const r = await fetch('/api/pos/upload', { method: 'POST', body: fd })
+    .then(x => x.json()).catch(() => ({ error: 'Network error' }));
+  e.target.value = '';
+  if (r.success) {
+    let msg = `Imported ${r.imported} purchase order(s).`;
+    if (r.errors && r.errors.length) msg += ` ${r.errors.length} could not be read.`;
+    res.textContent = msg; res.className = 'small ms-2 text-success';
+  } else {
+    res.textContent = r.error || 'Upload failed.'; res.className = 'small ms-2 text-danger';
   }
 });
 </script>
