@@ -1,6 +1,10 @@
 import json
 import os
+import time
 from pathlib import Path
+
+# True on a hosted deployment (Render) with a mounted persistent disk.
+_HOSTED = bool(os.environ.get('CONFIG_DIR'))
 
 # CONFIG_DIR lets a hosted deployment (e.g. Render) point settings + OAuth
 # token storage at a mounted persistent disk instead of the app's own
@@ -76,27 +80,52 @@ DEFAULT_SETTINGS = {
 }
 
 
+def _read_stored() -> dict:
+    """Return the parsed settings.json, or None if it can't be read.
+
+    On a hosted deploy the persistent disk can take a moment to mount after a
+    restart, so we retry briefly rather than treating a not-yet-mounted disk as
+    "no settings". Crucially, this NEVER writes anything — see load_settings for
+    why writing defaults over a slow/absent mount is dangerous."""
+    attempts = 5 if _HOSTED else 1
+    for i in range(attempts):
+        try:
+            if CONFIG_PATH.exists():
+                with open(CONFIG_PATH) as f:
+                    data = json.load(f)
+                if isinstance(data, dict) and data:
+                    return data
+        except Exception as e:
+            print(f"WARNING: settings.json at {CONFIG_PATH} unreadable: {e}", flush=True)
+        if i < attempts - 1:
+            time.sleep(0.5)
+    return None
+
+
 def load_settings() -> dict:
-    if not CONFIG_PATH.exists():
-        if os.environ.get('CONFIG_DIR'):
-            # CONFIG_DIR is only set on a hosted deployment with a persistent
-            # disk — settings.json missing there means either a genuinely
-            # fresh install, or the disk wasn't mounted/available when this
-            # was checked. Log loudly so a silent settings reset is visible
-            # in the deploy logs rather than just appearing as "wizard again".
-            print(f"WARNING: settings.json not found at {CONFIG_PATH} — "
-                  f"writing fresh defaults. If this is not a new install, "
-                  f"the persistent disk may not have been mounted yet.", flush=True)
+    stored = _read_stored()
+
+    if stored is None:
+        # No usable settings file. On a HOSTED deploy we deliberately do NOT
+        # write defaults: if the persistent disk is merely slow to mount (or
+        # briefly unreadable), writing blank defaults would clobber the real
+        # settings and bounce every user back to the setup wizard — losing the
+        # Xero connection in the process. Return in-memory defaults instead;
+        # once the disk is readable the real file is picked up again untouched.
+        if _HOSTED:
+            print(f"WARNING: {CONFIG_PATH} missing/unreadable — using in-memory "
+                  f"defaults WITHOUT overwriting. The persistent disk may not be "
+                  f"mounted yet; NOT resetting saved settings.", flush=True)
+            return _deep_copy(DEFAULT_SETTINGS)
+        # Local/dev first run: safe to create a starter file.
         CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
         save_settings(DEFAULT_SETTINGS)
         return _deep_copy(DEFAULT_SETTINGS)
-    with open(CONFIG_PATH) as f:
-        stored = json.load(f)
+
     merged = _deep_copy(DEFAULT_SETTINGS)
     _deep_merge(merged, stored)
-    # On a hosted deployment (e.g. Render) a persistent disk is mounted at a
-    # fixed path — STORAGE_PATH overrides whatever was saved in settings.json
-    # so invoice attachments always land on the durable volume.
+    # On a hosted deployment a persistent disk is mounted at a fixed path —
+    # STORAGE_PATH overrides whatever was saved so attachments land on the volume.
     storage_override = os.environ.get('STORAGE_PATH')
     if storage_override:
         merged.setdefault('app', {})['attachment_storage_path'] = storage_override
@@ -105,8 +134,12 @@ def load_settings() -> dict:
 
 def save_settings(settings: dict):
     CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
-    with open(CONFIG_PATH, 'w') as f:
+    # Atomic write: write to a temp file then replace, so a concurrent reader
+    # never sees a half-written or truncated settings.json.
+    tmp = CONFIG_PATH.with_name(CONFIG_PATH.name + '.tmp')
+    with open(tmp, 'w') as f:
         json.dump(settings, f, indent=2)
+    os.replace(tmp, CONFIG_PATH)
 
 
 def _deep_copy(obj):
