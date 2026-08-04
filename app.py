@@ -1255,6 +1255,30 @@ def create_app():
     # Internal helpers
     # ------------------------------------------------------------------ #
 
+    @app.route('/api/documents/clear', methods=['POST'])
+    def api_clear_documents():
+        """Super-admin one-click reset: wipe all invoices + remittances (keeping
+        users, settings and the finance connection) so demo/test runs can start
+        from a clean slate."""
+        if not _is_superadmin():
+            return jsonify({'error': 'Only a super admin can clear documents.'}), 403
+        inv_count = Invoice.query.count()
+        rem_count = Remittance.query.count()
+        # Best-effort remove stored files, then the rows. Invoice cascades to its
+        # lines + audit logs; Remittance has no child rows.
+        for inv in Invoice.query.all():
+            if inv.attachment_path:
+                try: Path(inv.attachment_path).unlink(missing_ok=True)
+                except Exception: pass
+            db.session.delete(inv)
+        for rem in Remittance.query.all():
+            if rem.attachment_path:
+                try: Path(rem.attachment_path).unlink(missing_ok=True)
+                except Exception: pass
+            db.session.delete(rem)
+        db.session.commit()
+        return jsonify({'success': True, 'invoices': inv_count, 'remittances': rem_count})
+
     @app.route('/api/support', methods=['POST'])
     def api_support():
         """In-app 'Raise a support ticket' form. Issues a reference, emails the

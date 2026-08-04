@@ -429,6 +429,17 @@
           <input type="number" class="form-control" id="app-port" value="5000">
         </div>
       </div>
+
+      <hr class="my-4">
+      <div class="border rounded p-3" style="border-color:#f1c0c0 !important;background:#fdf5f5;">
+        <div class="fw-semibold" style="color:#b02a37;"><i class="bi bi-exclamation-octagon me-1"></i>Reset documents</div>
+        <p class="text-muted small mb-2">
+          Permanently delete <strong>all invoices and remittances</strong> so you can start from a clean slate
+          — useful for demos and testing. Keeps users, settings and your finance connection. This cannot be undone.
+        </p>
+        <button class="btn btn-outline-danger btn-sm" id="btn-clear-docs"><i class="bi bi-trash me-1"></i>Clear all documents</button>
+        <span id="clear-docs-result" class="small ms-2"></span>
+      </div>
     </div>
 
     <!-- ======================== USERS ======================== -->
@@ -1075,6 +1086,21 @@ loadSettings();
   const first = document.querySelector('.settings-nav .nav-link');
   if (first) first.click();
 })();
+
+document.getElementById('btn-clear-docs')?.addEventListener('click', async () => {
+  if (!confirm('Delete ALL invoices and remittances? This permanently clears the document queue and cannot be undone.')) return;
+  const el = document.getElementById('clear-docs-result');
+  el.textContent = 'Clearing…'; el.className = 'small ms-2 text-muted';
+  const r = await fetch('/api/documents/clear', { method: 'POST' })
+    .then(r => r.json()).catch(() => ({ error: 'Network error' }));
+  if (r.success) {
+    el.textContent = `Cleared ${r.invoices} invoice(s) and ${r.remittances} remittance(s).`;
+    el.className = 'small ms-2 text-success';
+  } else {
+    el.textContent = r.error || 'Could not clear documents.';
+    el.className = 'small ms-2 text-danger';
+  }
+});
 </script>
 
 <style>
