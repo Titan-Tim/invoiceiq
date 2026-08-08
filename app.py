@@ -164,7 +164,7 @@ def create_app():
             return jsonify({'error': 'Only a super admin can change connection settings.'}), 403
         return None
 
-    PUBLIC_ENDPOINTS = {'login', 'forgot_password', 'healthz', 'static', 'privacy_policy', 'terms_of_use'}
+    PUBLIC_ENDPOINTS = {'login', 'forgot_password', 'healthz', 'static', 'favicon', 'privacy_policy', 'terms_of_use'}
     WIZARD_PATH_PREFIXES = ('/api/wizard', '/api/settings', '/auth/')
 
     @app.before_request
