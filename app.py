@@ -224,6 +224,11 @@ def create_app():
         """Health-check endpoint — always returns 200 (used by preview/load-balancers)."""
         return '', 200
 
+    @app.route('/favicon.ico')
+    def favicon():
+        """Root favicon for browsers/bookmarks that ignore the <link> tags."""
+        return app.send_static_file('favicon.ico')
+
     @app.route('/', methods=['GET', 'HEAD'])
     def dashboard():
         # Health-check probes use HEAD — return 200 without a redirect
