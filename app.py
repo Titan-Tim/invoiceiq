@@ -1407,6 +1407,18 @@ def create_app():
         if not resp.ok:
             raise RuntimeError(f"{resp.status_code}: {resp.text[:300]}")
 
+    def _account_from():
+        """Onboarding / password-reset emails come from a welcome@ address on the
+        same verified domain as EMAIL_FROM (override with ACCOUNT_FROM_EMAIL)."""
+        override = os.environ.get('ACCOUNT_FROM_EMAIL')
+        if override:
+            return override
+        base = os.environ.get('EMAIL_FROM', 'Invoice-IQ <no-reply@sol-iq.co.uk>')
+        name = base.split('<')[0].strip() or 'Invoice-IQ'
+        addr = base[base.find('<') + 1:base.find('>')].strip() if '<' in base and '>' in base else base.strip()
+        domain = addr.split('@', 1)[1] if '@' in addr else 'sol-iq.co.uk'
+        return f"{name} <welcome@{domain}>"
+
     def _send_password_reset_email(user: User, temp_password: str):
         api_key = os.environ.get('RESEND_API_KEY')
         if not api_key:
@@ -1417,7 +1429,7 @@ def create_app():
             "https://api.resend.com/emails",
             headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
             json={
-                "from": os.environ.get('EMAIL_FROM', 'Invoice-IQ <no-reply@sol-iq.co.uk>'),
+                "from": _account_from(),
                 "to": user.email,
                 "subject": "Your Invoice-IQ password has been reset",
                 "html": f"""
