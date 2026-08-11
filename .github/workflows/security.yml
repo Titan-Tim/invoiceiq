@@ -1,4 +1,7 @@
 name: Security scan
+
+# Self-contained (this repo is public, so it can't call the private
+# Titan-Tim/.github reusable workflow). Keep in sync with that shared version.
 on:
   push:
     branches: [main]
@@ -6,8 +9,20 @@ on:
   schedule:
     - cron: "0 6 * * 1"
   workflow_dispatch: {}
+
 permissions:
   contents: read
+
 jobs:
   secret-scan:
-    uses: Titan-Tim/.github/.github/workflows/secret-scan.yml@main
+    name: TruffleHog
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout (full history)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: TruffleHog
+        uses: trufflesecurity/trufflehog@main
+        with:
+          extra_args: --results=verified,unknown
