@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Invoice-IQ — Demo Runbook</title>
+<style>
+  :root{
+    --ink:#0F2749; --ink-soft:#274064; --ember:#E8792B; --ember-deep:#C85F16;
+    --paper:#FAF7F1; --card:#FFFFFF; --slate:#33415B; --muted:#6B7280;
+    --line:#E7E1D6; --good:#1F9D57; --good-bg:#EAF6EF; --amber-bg:#FBF0E4;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;}
+  body{
+    font-family:"Segoe UI",system-ui,-apple-system,sans-serif;
+    color:var(--slate); background:var(--paper);
+    font-size:10.5px; line-height:1.45;
+    -webkit-print-color-adjust:exact; print-color-adjust:exact;
+  }
+  .page{max-width:820px; margin:0 auto; padding:16px 20px 24px;}
+  code,.mono{font-family:"Cascadia Code","Consolas",ui-monospace,monospace;}
+
+  /* Header */
+  header{
+    background:var(--ink); color:#fff; border-radius:10px;
+    padding:14px 18px; display:flex; justify-content:space-between; align-items:flex-end;
+    border-bottom:3px solid var(--ember);
+  }
+  header h1{margin:0; font-size:19px; letter-spacing:.2px; font-weight:700; text-wrap:balance;}
+  header h1 .iq{color:var(--ember);}
+  header .sub{margin-top:3px; font-size:10px; color:#C6D2E4;}
+  header .meta{text-align:right; font-size:9.5px; color:#C6D2E4; line-height:1.5;}
+  header .meta b{color:#fff;}
+  header .meta .url{font-family:"Cascadia Code","Consolas",monospace; color:#fff;}
+
+  .eyebrow{
+    font-size:8.5px; font-weight:700; letter-spacing:1.4px; text-transform:uppercase;
+    color:var(--ember-deep); margin:0 0 5px;
+  }
+  h2{font-size:12.5px; color:var(--ink); margin:0 0 6px; font-weight:700;}
+
+  .grid{display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:12px;}
+  .card{
+    background:var(--card); border:1px solid var(--line); border-radius:9px;
+    padding:11px 13px; break-inside:avoid;
+  }
+  .card.span2{grid-column:1 / -1;}
+
+  /* Checklist */
+  ul.check{list-style:none; margin:0; padding:0;}
+  ul.check li{position:relative; padding:2.5px 0 2.5px 19px;}
+  ul.check li::before{
+    content:""; position:absolute; left:0; top:4px; width:11px; height:11px;
+    border:1.5px solid var(--ember); border-radius:3px;
+  }
+  ul.check li b{color:var(--ink);}
+
+  /* Acts */
+  .act{display:flex; gap:11px; padding:9px 0; border-top:1px solid var(--line);}
+  .act:first-of-type{border-top:none;}
+  .act .n{
+    flex:0 0 26px; height:26px; border-radius:50%;
+    background:var(--ink); color:#fff; font-weight:700; font-size:12px;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .act .body{flex:1;}
+  .act h3{margin:1px 0 3px; font-size:12px; color:var(--ink);}
+  .act h3 span{font-weight:600; color:var(--muted); font-size:9.5px; text-transform:uppercase; letter-spacing:.6px;}
+  .path{
+    font-family:"Cascadia Code","Consolas",monospace; font-size:9.5px;
+    background:#F3EEE6; border:1px solid var(--line); border-radius:5px;
+    padding:3px 7px; display:inline-block; margin:2px 0 4px; color:var(--ink-soft);
+  }
+  .say{
+    border-left:3px solid var(--ember); background:var(--amber-bg);
+    padding:4px 9px; border-radius:0 5px 5px 0; margin:3px 0 2px; color:var(--ink-soft);
+  }
+  .say b{color:var(--ember-deep); font-size:8px; letter-spacing:1px; text-transform:uppercase; display:block; margin-bottom:1px;}
+  .point{font-size:9.5px; color:var(--muted);}
+  .point b{color:var(--good);}
+
+  /* Fallback table */
+  table{width:100%; border-collapse:collapse; font-size:9.5px;}
+  th,td{text-align:left; padding:4px 8px; border-bottom:1px solid var(--line); vertical-align:top;}
+  th{color:var(--ember-deep); font-size:8px; letter-spacing:.8px; text-transform:uppercase;}
+  td.sym{font-weight:600; color:var(--ink); width:34%;}
+
+  .files{font-size:9.5px;}
+  .files .row{padding:3px 0; border-top:1px dotted var(--line);}
+  .files .row:first-child{border-top:none;}
+  .files .loc{font-family:"Cascadia Code","Consolas",monospace; color:var(--ink-soft); font-size:8.8px;}
+
+  .ask{background:var(--good-bg); border:1px solid #CDE9D8; border-radius:9px; padding:10px 13px; break-inside:avoid;}
+  .ask h2{color:#14713D;}
+  .ask ol{margin:4px 0 0; padding-left:16px;}
+  .ask li{padding:1.5px 0;}
+
+  .pill{display:inline-block; background:var(--ink); color:#fff; font-size:8px; font-weight:700;
+        letter-spacing:.6px; text-transform:uppercase; padding:2px 7px; border-radius:20px; vertical-align:middle;}
+  .pill.ar{background:var(--ember);}
+  .pill.trust{background:var(--good);}
+
+  footer{margin-top:12px; text-align:center; font-size:8.5px; color:var(--muted);}
+
+  @media print{
+    @page{size:A4; margin:11mm;}
+    body{background:#fff; font-size:10px;}
+    .page{padding:0; max-width:none;}
+    .card,.ask{box-shadow:none;}
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <header>
+    <div>
+      <h1>Invoice&#8209;IQ <span class="iq">·</span> Demo Runbook</h1>
+      <div class="sub">Xero-connected live demo — purchase-to-pay &amp; order-to-cash</div>
+    </div>
+    <div class="meta">
+      <div>Site: <span class="url">invoice.sol-iq.co.uk</span></div>
+      <div>Xero: <b>Demo Company (UK)</b> · Finance system = <b>Xero</b></div>
+      <div>Post bills as <b>DRAFT</b> for the demo</div>
+    </div>
+  </header>
+
+  <div class="grid">
+
+    <!-- PRE-FLIGHT -->
+    <div class="card">
+      <p class="eyebrow">Before she arrives</p>
+      <h2>Pre-flight checklist</h2>
+      <ul class="check">
+        <li>Logged in; <b>Xero connected</b> to the Demo Company</li>
+        <li>Finance system set to <b>Xero</b> (Settings)</li>
+        <li><b>Claude API key</b> saved (Settings → AI/Claude) — powers extraction</li>
+        <li>Suppliers imported into Xero (Contacts → Import)</li>
+        <li><b>post_status = DRAFT</b> so nothing hits the ledger</li>
+        <li>Demo data reset &amp; tidy; demo PDFs on the desktop</li>
+      </ul>
+    </div>
+
+    <!-- FILES -->
+    <div class="card">
+      <p class="eyebrow">Where the demo files live</p>
+      <h2>On this laptop</h2>
+      <div class="files">
+        <div class="row">Supplier invoices (AP)<div class="loc">demo documentation\demo_invoices\</div></div>
+        <div class="row">Signed delivery notes (AR)<div class="loc">demo documentation\demo_deliveries\</div></div>
+        <div class="row">Xero contact imports + email<div class="loc">demo documentation\Demo Xero Contacts (and other packages)\</div></div>
+      </div>
+      <p class="point" style="margin:7px 0 0">Best openers: <b>INV-2043</b> (Highland Paper — good coding variety), <b>DN-7001</b> (Cairngorm delivery note).</p>
+    </div>
+
+    <!-- THE DEMO -->
+    <div class="card span2">
+      <p class="eyebrow">Run it in this order</p>
+      <h2>The demo — three acts</h2>
+
+      <div class="act">
+        <div class="n">1</div>
+        <div class="body">
+          <h3>Accounts Payable — it reads, codes &amp; posts <span class="pill">AP</span></h3>
+          <span class="path">Invoices → drop INV-2043 → open it → Approve → Xero: Business ▸ Bills to pay ▸ Draft</span>
+          <div class="say"><b>Say</b>It doesn't just read the invoice — it codes every line to the right nominal from your Xero chart, then posts the bill. Nothing posts until someone approves.</div>
+          <div class="point"><b>Point at:</b> the green <b>Nominal</b> column (AI-assigned, click to override) → then the matching bill in Xero. Show <b>INV-3390</b> (IT kit) for coding variety.</div>
+        </div>
+      </div>
+
+      <div class="act">
+        <div class="n">2</div>
+        <div class="body">
+          <h3>Accounts Receivable — delivery note to invoice <span class="pill ar">AR</span></h3>
+          <span class="path">Deliver to Invoice → upload DN-7001 → Xero: Business ▸ Invoices ▸ Draft</span>
+          <div class="say"><b>Say</b>The same engine runs in reverse. A signed delivery note comes back, and Xero raises the customer invoice automatically — order-to-cash, closed.</div>
+          <div class="point"><b>Point at:</b> the read-back (customer, order ref, priced lines) → then the new draft <b>sales</b> invoice in Xero. The customer is matched or created automatically.</div>
+        </div>
+      </div>
+
+      <div class="act">
+        <div class="n">3</div>
+        <div class="body">
+          <h3>Trust it from day one — the audit trail <span class="pill trust">Proof</span></h3>
+          <span class="path">Processed (sidebar) → copy a Ref → paste into Xero search</span>
+          <div class="say"><b>Say</b>Early on you won't fully trust a new system — so here's everything it has posted, each with its Xero reference. If it's ever unclear whether something went through, you check here. No black box.</div>
+          <div class="point"><b>Point at:</b> the <b>Ref</b> under each status → search that ref in Xero → lands on the exact bill.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- FALLBACKS -->
+    <div class="card">
+      <p class="eyebrow">If something hiccups</p>
+      <h2>Symptom → fix</h2>
+      <table>
+        <thead><tr><th>What you see</th><th>Do this</th></tr></thead>
+        <tbody>
+          <tr><td class="sym">Upload doesn't read the PDF</td><td>Claude API key not set — Settings → AI/Claude.</td></tr>
+          <tr><td class="sym">Bill won't post</td><td>Open the invoice — the status message now shows Xero's actual reason. Stay calm; it's specific.</td></tr>
+          <tr><td class="sym">A nominal looks off</td><td>"It's a suggestion from your chart — click the cell to change it." Feature, not fault.</td></tr>
+          <tr><td class="sym">AR customer not in Xero</td><td>Nothing to do — it creates the contact automatically.</td></tr>
+          <tr><td class="sym">Can't find it in Xero</td><td>Open <b>Processed</b>, grab the Ref, search Xero.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- ASK HER -->
+    <div class="ask">
+      <p class="eyebrow" style="color:#14713D">Scope the real workflow</p>
+      <h2>Ask her about the AR flow</h2>
+      <ol>
+        <li>Where is a customer <b>order captured</b> today? (spreadsheet, order system, Xero quote, or the delivery note itself)</li>
+        <li>Do delivery notes show <b>prices</b>, or just items &amp; quantities?</li>
+        <li>Signed note → invoice as a <b>draft to check</b>, or send automatically?</li>
+        <li>Do <b>part-deliveries</b> happen — invoice only what was signed for?</li>
+      </ol>
+    </div>
+
+    <!-- POSITIONING -->
+    <div class="card span2">
+      <p class="eyebrow">If you have 20 seconds to land the point</p>
+      <h2>The one-liner</h2>
+      <p style="margin:0; font-size:11px; color:var(--ink-soft);">
+        "It's not OCR that saves a bit of typing. It <b>reads, codes and posts</b> your supplier bills into Xero, turns a <b>signed delivery note into a customer invoice</b>, and keeps a <b>full audit trail</b> — purchase-to-pay and order-to-cash, with a person approving at each step."
+      </p>
+    </div>
+
+  </div>
+
+  <footer>Invoice-IQ · a Sol-IQ product — internal demo runbook</footer>
+</div>
+</body>
+</html>

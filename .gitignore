@@ -30,3 +30,12 @@ assets/icon_256.png
 prisma/
 prisma.config.ts
 highlands-islands-icons/
+
+# Sales/marketing media (explainer MP4s, ~244MB) — too big for git
+Sales/
+
+# Local licence state, written at runtime
+.invoiceiq/
+
+# Scratch output
+scratch_*.err

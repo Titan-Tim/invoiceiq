@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Ledger-IQ customer import. Each <customer> maps to a Contact (type=CUSTOMER).
+     Import via Ledger-IQ → Import. -->
+<customers>
+  <customer>
+    <name>Cairngorm Outdoor Co</name>
+    <externalRef>COC</externalRef>
+    <vatNumber>GB 771 2234 01</vatNumber>
+    <email>accounts@cairngormoutdoor.co.uk</email>
+    <address>2 Grampian Road, Aviemore, PH22 1RH</address>
+    <invoiceTermsDays>30</invoiceTermsDays>
+  </customer>
+  <customer>
+    <name>Moray Firth Hotels</name>
+    <externalRef>MFH</externalRef>
+    <vatNumber>GB 662 9981 55</vatNumber>
+    <email>purchasing@morayfirthhotels.co.uk</email>
+    <address>Shore Street, Nairn, IV12 4EA</address>
+    <invoiceTermsDays>45</invoiceTermsDays>
+  </customer>
+  <customer>
+    <name>Deeside Farm Shop</name>
+    <externalRef>DFS</externalRef>
+    <vatNumber>GB 553 1120 88</vatNumber>
+    <email>orders@deesidefarmshop.co.uk</email>
+    <address>Bridge of Dee, Aberdeen, AB14 0PT</address>
+    <invoiceTermsDays>14</invoiceTermsDays>
+  </customer>
+  <customer>
+    <name>Aberdeen Marine Services</name>
+    <externalRef>AMS</externalRef>
+    <vatNumber>GB 449 7723 10</vatNumber>
+    <email>ap@aberdeenmarine.co.uk</email>
+    <address>Harbour Road, Aberdeen, AB11 5DQ</address>
+    <invoiceTermsDays>30</invoiceTermsDays>
+  </customer>
+</customers>

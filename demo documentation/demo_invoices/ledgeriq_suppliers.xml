@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Ledger-IQ supplier import. Each <supplier> maps to a Contact
+     (type=SUPPLIER). Skye Fresh Produce is intentionally omitted so
+     invoice INV-4410 has no matching supplier in Ledger-IQ. -->
+<suppliers>
+  <supplier>
+    <name>Highland Paper Co</name>
+    <type>SUPPLIER</type>
+    <externalRef>HPC</externalRef>
+    <vatNumber>GB 214 5567 89</vatNumber>
+    <email>accounts@highlandpaper.co.uk</email>
+    <address>Unit 4, Nairn Industrial Estate, Nairn, IV12 5QR</address>
+    <invoiceTermsDays>30</invoiceTermsDays>
+  </supplier>
+  <supplier>
+    <name>Caledonian Print Services</name>
+    <type>SUPPLIER</type>
+    <externalRef>CPS</externalRef>
+    <vatNumber>GB 331 8890 12</vatNumber>
+    <email>accounts@caledonianprint.co.uk</email>
+    <address>17 Longman Road, Inverness, IV1 1RY</address>
+    <invoiceTermsDays>30</invoiceTermsDays>
+  </supplier>
+  <supplier>
+    <name>Ben Nevis Hardware</name>
+    <type>SUPPLIER</type>
+    <externalRef>BNH</externalRef>
+    <vatNumber>GB 442 0091 34</vatNumber>
+    <email>accounts@bennevishardware.co.uk</email>
+    <address>3 High Street, Fort William, PH33 6DH</address>
+    <invoiceTermsDays>30</invoiceTermsDays>
+  </supplier>
+  <supplier>
+    <name>Orkney Office Supplies</name>
+    <type>SUPPLIER</type>
+    <externalRef>OOS</externalRef>
+    <vatNumber>GB 556 7712 08</vatNumber>
+    <email>accounts@orkneyoffice.co.uk</email>
+    <address>9 Albert Street, Kirkwall, Orkney, KW15 1HP</address>
+    <invoiceTermsDays>30</invoiceTermsDays>
+  </supplier>
+  <supplier>
+    <name>Islay Logistics Ltd</name>
+    <type>SUPPLIER</type>
+    <externalRef>ISL</externalRef>
+    <vatNumber>GB 667 4432 55</vatNumber>
+    <email>accounts@islaylogistics.co.uk</email>
+    <address>Distillery Road, Port Ellen, Islay, PA42 7DU</address>
+    <invoiceTermsDays>30</invoiceTermsDays>
+  </supplier>
+  <supplier>
+    <name>Grampian IT Solutions</name>
+    <type>SUPPLIER</type>
+    <externalRef>GIT</externalRef>
+    <vatNumber>GB 889 5567 21</vatNumber>
+    <email>accounts@grampianit.co.uk</email>
+    <address>44 Union Street, Aberdeen, AB10 1BB</address>
+    <invoiceTermsDays>30</invoiceTermsDays>
+  </supplier>
+  <supplier>
+    <name>Loch Ness Cleaning</name>
+    <type>SUPPLIER</type>
+    <externalRef>LNC</externalRef>
+    <vatNumber>GB 990 2278 43</vatNumber>
+    <email>accounts@lochnesscleaning.co.uk</email>
+    <address>Balmacaan Road, Drumnadrochit, IV63 6WJ</address>
+    <invoiceTermsDays>30</invoiceTermsDays>
+  </supplier>
+</suppliers>

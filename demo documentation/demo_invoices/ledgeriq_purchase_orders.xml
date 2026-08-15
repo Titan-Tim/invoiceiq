@@ -1,0 +1,146 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Ledger-IQ purchase order import. Each <purchaseOrder> maps to a
+     PurchaseOrder + PurchaseOrderLine[]. supplierName/supplierRef pick
+     the Contact. PO-10022 net (440.00) intentionally differs from
+     invoice INV-9981 (486.50) to demo the discrepancy flow. -->
+<purchaseOrders>
+  <purchaseOrder>
+    <poNumber>PO-10021</poNumber>
+    <supplierName>Highland Paper Co</supplierName>
+    <supplierRef>HPC</supplierRef>
+    <date>2026-06-24</date>
+    <expectedAt>2026-07-08</expectedAt>
+    <status>OPEN</status>
+    <lines>
+      <line>
+        <description>A4 white copier paper (box of 5 reams)</description>
+        <quantity>40</quantity>
+        <unitPrice>22.0000</unitPrice>
+        <netAmount>880.00</netAmount>
+      </line>
+      <line>
+        <description>C4 manila envelopes (box of 250)</description>
+        <quantity>20</quantity>
+        <unitPrice>14.0000</unitPrice>
+        <netAmount>280.00</netAmount>
+      </line>
+      <line>
+        <description>Lever-arch files, assorted colours</description>
+        <quantity>40</quantity>
+        <unitPrice>2.0000</unitPrice>
+        <netAmount>80.00</netAmount>
+      </line>
+    </lines>
+    <netTotal>1240.00</netTotal>
+  </purchaseOrder>
+  <purchaseOrder>
+    <poNumber>PO-10023</poNumber>
+    <supplierName>Caledonian Print Services</supplierName>
+    <supplierRef>CPS</supplierRef>
+    <date>2026-06-24</date>
+    <expectedAt>2026-07-06</expectedAt>
+    <status>OPEN</status>
+    <lines>
+      <line>
+        <description>Tri-fold brochures, full colour (per unit)</description>
+        <quantity>5000</quantity>
+        <unitPrice>0.3600</unitPrice>
+        <netAmount>1800.00</netAmount>
+      </line>
+      <line>
+        <description>Business cards, 350gsm (pack of 250)</description>
+        <quantity>10</quantity>
+        <unitPrice>25.0000</unitPrice>
+        <netAmount>250.00</netAmount>
+      </line>
+      <line>
+        <description>A2 posters, full colour</description>
+        <quantity>25</quantity>
+        <unitPrice>10.0000</unitPrice>
+        <netAmount>250.00</netAmount>
+      </line>
+    </lines>
+    <netTotal>2300.00</netTotal>
+  </purchaseOrder>
+  <purchaseOrder>
+    <poNumber>PO-10024</poNumber>
+    <supplierName>Ben Nevis Hardware</supplierName>
+    <supplierRef>BNH</supplierRef>
+    <date>2026-06-22</date>
+    <expectedAt>2026-07-05</expectedAt>
+    <status>OPEN</status>
+    <lines>
+      <line>
+        <description>Cordless drill driver 18V</description>
+        <quantity>6</quantity>
+        <unitPrice>95.0000</unitPrice>
+        <netAmount>570.00</netAmount>
+      </line>
+      <line>
+        <description>Mixed screws &amp; fixings (tub)</description>
+        <quantity>20</quantity>
+        <unitPrice>12.0000</unitPrice>
+        <netAmount>240.00</netAmount>
+      </line>
+      <line>
+        <description>Heavy-duty cloth tape 50m</description>
+        <quantity>20</quantity>
+        <unitPrice>3.0000</unitPrice>
+        <netAmount>60.00</netAmount>
+      </line>
+    </lines>
+    <netTotal>870.00</netTotal>
+  </purchaseOrder>
+  <purchaseOrder>
+    <poNumber>PO-10025</poNumber>
+    <supplierName>Orkney Office Supplies</supplierName>
+    <supplierRef>OOS</supplierRef>
+    <date>2026-06-21</date>
+    <expectedAt>2026-07-04</expectedAt>
+    <status>OPEN</status>
+    <lines>
+      <line>
+        <description>Ballpoint pens (box of 50)</description>
+        <quantity>10</quantity>
+        <unitPrice>6.5000</unitPrice>
+        <netAmount>65.00</netAmount>
+      </line>
+      <line>
+        <description>Compatible printer toner cartridge</description>
+        <quantity>4</quantity>
+        <unitPrice>45.0000</unitPrice>
+        <netAmount>180.00</netAmount>
+      </line>
+      <line>
+        <description>Sticky notes, multipack</description>
+        <quantity>10</quantity>
+        <unitPrice>3.0000</unitPrice>
+        <netAmount>30.00</netAmount>
+      </line>
+    </lines>
+    <netTotal>275.00</netTotal>
+  </purchaseOrder>
+  <purchaseOrder>
+    <poNumber>PO-10022</poNumber>
+    <supplierName>Islay Logistics Ltd</supplierName>
+    <supplierRef>ISL</supplierRef>
+    <date>2026-06-23</date>
+    <expectedAt>2026-07-05</expectedAt>
+    <status>OPEN</status>
+    <lines>
+      <line>
+        <description>Pallet delivery — Highlands &amp; Islands</description>
+        <quantity>6</quantity>
+        <unitPrice>58.0000</unitPrice>
+        <netAmount>348.00</netAmount>
+      </line>
+      <line>
+        <description>Next-day courier surcharge</description>
+        <quantity>4</quantity>
+        <unitPrice>23.0000</unitPrice>
+        <netAmount>92.00</netAmount>
+      </line>
+    </lines>
+    <netTotal>440.00</netTotal>
+  </purchaseOrder>
+</purchaseOrders>

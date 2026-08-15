@@ -10,8 +10,8 @@
         <h6 class="fw-semibold mb-1">Signed delivery note → Xero invoice</h6>
         <p class="text-muted small mb-3">
           Upload a signed proof-of-delivery. Invoice-IQ reads the customer, order
-          reference and delivered lines, confirms the note is <strong>signed</strong>,
-          then generates a draft sales invoice in Xero automatically.
+          reference and delivered lines, then generates a draft sales invoice in
+          Xero automatically.
         </p>
 
         <div id="dropzone" class="border rounded p-4 text-center"
@@ -93,9 +93,10 @@ goBtn.addEventListener('click', async () => {
       <td class="text-end">${money(l.unit_price)}</td>
     </tr>`).join('');
 
-  const sigBadge = d.signature_present
-    ? `<span class="badge bg-success"><i class="bi bi-pen me-1"></i>Signed${d.signed_by ? ' by ' + esc(d.signed_by) : ''}</span>`
-    : `<span class="badge bg-danger">Not signed</span>`;
+  // Signature is informational only (notes are pre-filtered to signed ones).
+  const sigBadge = d.signed_by
+    ? `<span class="badge bg-success"><i class="bi bi-pen me-1"></i>Signed by ${esc(d.signed_by)}</span>`
+    : (d.signature_present ? `<span class="badge bg-success"><i class="bi bi-pen me-1"></i>Signed</span>` : '');
 
   let outcome = '';
   if (r.ok) {

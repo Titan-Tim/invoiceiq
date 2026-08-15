@@ -1,0 +1,52 @@
+Subject: Quick prep before Wednesday — tailoring the Invoice-IQ demo to your Xero
+
+Hi [Name],
+
+Looking forward to Wednesday morning. So I can set the demo up around how you
+actually work rather than a generic walkthrough, could you let me know a few
+things beforehand?
+
+1. Which parts of your accounts-payable process are the most painful right now?
+   (e.g. keying invoices in, chasing approvals, coding to the right nominal,
+   getting them into Xero, matching to purchase orders, remittances)
+
+2. Which of these would you most want automated?
+   - Capturing invoices automatically from a mailbox (e.g. invoices@...)
+   - Reading the supplier, amounts and VAT off the PDF for you
+   - Routing invoices for approval before they post
+   - Pushing approved invoices straight into Xero as bills
+   - Matching invoices to purchase orders
+   - Handling supplier remittances
+
+3. Roughly how many supplier invoices do you process in a typical month, and
+   how do they arrive today (email, post, portal)?
+
+4. A handful of your regular suppliers by name — I'll load a few real-looking
+   examples so you can see your own suppliers coming through on the day.
+
+5. Do you use purchase orders in Xero? And which nominal/expense accounts do
+   most purchases go to?
+
+You also mentioned wanting Xero to raise the CUSTOMER invoice automatically once
+an order has been delivered and the signed delivery note comes back. I can show
+that too — it's a nice fit. To tailor it, a few questions:
+
+6. When a customer order comes in, where is it captured today? (a spreadsheet,
+   an order/stock system, emailed in, raised as a quote in Xero, or written on
+   the delivery note itself)
+
+7. Do your delivery notes show prices/values, or just items and quantities?
+
+8. Should a signed delivery note create the Xero invoice as a DRAFT for someone
+   to check, or go out to the customer automatically?
+
+9. Do part-deliveries happen (some lines delivered now, some later), and should
+   the invoice cover only what was actually signed for?
+
+No need for anything formal — a few lines back is perfect. I'll have it wired up
+to a Xero demo company so you can watch an invoice go from PDF to a bill sitting
+in Xero — and a signed delivery note turn into a customer invoice — and we can
+talk through what a live rollout on your own account would look like.
+
+Thanks,
+Tim

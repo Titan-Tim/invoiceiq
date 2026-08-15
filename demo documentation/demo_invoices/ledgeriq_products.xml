@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Ledger-IQ product import. Each <product> maps to a Product.
+     <category> is matched by name to an existing expense/income category
+     (optional; left uncategorised if not found). Import via Ledger-IQ → Import. -->
+<products>
+  <product>
+    <name>A4 Copier Paper (box of 5 reams)</name>
+    <description>80gsm white multipurpose paper</description>
+    <defaultPrice>26.40</defaultPrice>
+    <defaultVatRate>20</defaultVatRate>
+    <category>Office Supplies</category>
+  </product>
+  <product>
+    <name>Business Cards (pack of 250)</name>
+    <description>350gsm full-colour, double-sided</description>
+    <defaultPrice>30.00</defaultPrice>
+    <defaultVatRate>20</defaultVatRate>
+  </product>
+  <product>
+    <name>Cordless Drill Driver 18V</name>
+    <description>Brushless, 2 batteries + charger</description>
+    <defaultPrice>114.00</defaultPrice>
+    <defaultVatRate>20</defaultVatRate>
+  </product>
+  <product>
+    <name>Monthly Office Cleaning</name>
+    <description>Standard contract, per calendar month</description>
+    <defaultPrice>560.00</defaultPrice>
+    <defaultVatRate>20</defaultVatRate>
+  </product>
+  <product>
+    <name>Annual IT Support Contract</name>
+    <description>Remote + on-site support, per year</description>
+    <defaultPrice>950.00</defaultPrice>
+    <defaultVatRate>20</defaultVatRate>
+  </product>
+</products>

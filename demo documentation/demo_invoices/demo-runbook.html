@@ -1,0 +1,317 @@
+<title>Invoice-IQ ↔ Ledger-IQ Demo Runbook</title>
+<style>
+  :root{
+    --paper:#FAF6F0; --surface:#FFFFFF; --surface-2:#FBF7F1;
+    --ink:#1C1917; --ink-soft:#57534E; --ink-faint:#8F877E;
+    --line:#EAE2D6; --line-strong:#DED4C4;
+    --navy:#0F2749; --amber:#F5A623; --dawn:#FF7A45;
+    --grad:linear-gradient(135deg,#FF7A45 0%,#F5A623 100%);
+    --good:#0E9C6B; --good-bg:#E7F6EE;
+    --warn:#C2610C; --warn-bg:#FBEEDD;
+    --bad:#D8452B;  --bad-bg:#FBE9E5;
+    --info:#2F6FED; --info-bg:#E7EEFC;
+    --shadow:0 1px 2px rgba(28,25,23,.04),0 8px 24px -18px rgba(15,39,73,.28);
+    --radius:14px;
+    --sans:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --serif:ui-serif,Georgia,"Iowan Old Style","Times New Roman",serif;
+    --mono:ui-monospace,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;
+  }
+  @media (prefers-color-scheme:dark){
+    :root{
+      --paper:#0E1622; --surface:#16212F; --surface-2:#1A2634;
+      --ink:#F2ECE3; --ink-soft:#BAB3A9; --ink-faint:#8B8479;
+      --line:#26323F; --line-strong:#31404F;
+      --navy:#9FB6D6; --amber:#F5A623; --dawn:#FF8A5B;
+      --good:#37D399; --good-bg:#0F2A22;
+      --warn:#F6B45A; --warn-bg:#2E2211;
+      --bad:#F5836B;  --bad-bg:#2C1712;
+      --info:#77A2F0; --info-bg:#132038;
+      --shadow:0 1px 2px rgba(0,0,0,.3),0 12px 30px -20px rgba(0,0,0,.7);
+    }
+  }
+  :root[data-theme="light"]{
+    --paper:#FAF6F0; --surface:#FFFFFF; --surface-2:#FBF7F1;
+    --ink:#1C1917; --ink-soft:#57534E; --ink-faint:#8F877E;
+    --line:#EAE2D6; --line-strong:#DED4C4; --navy:#0F2749;
+    --amber:#F5A623; --dawn:#FF7A45;
+    --good:#0E9C6B; --good-bg:#E7F6EE; --warn:#C2610C; --warn-bg:#FBEEDD;
+    --bad:#D8452B; --bad-bg:#FBE9E5; --info:#2F6FED; --info-bg:#E7EEFC;
+    --shadow:0 1px 2px rgba(28,25,23,.04),0 8px 24px -18px rgba(15,39,73,.28);
+  }
+  :root[data-theme="dark"]{
+    --paper:#0E1622; --surface:#16212F; --surface-2:#1A2634;
+    --ink:#F2ECE3; --ink-soft:#BAB3A9; --ink-faint:#8B8479;
+    --line:#26323F; --line-strong:#31404F; --navy:#9FB6D6;
+    --amber:#F5A623; --dawn:#FF8A5B;
+    --good:#37D399; --good-bg:#0F2A22; --warn:#F6B45A; --warn-bg:#2E2211;
+    --bad:#F5836B; --bad-bg:#2C1712; --info:#77A2F0; --info-bg:#132038;
+    --shadow:0 1px 2px rgba(0,0,0,.3),0 12px 30px -20px rgba(0,0,0,.7);
+  }
+
+  *{box-sizing:border-box}
+  .rb{
+    background:var(--paper); color:var(--ink); font-family:var(--sans);
+    line-height:1.6; -webkit-font-smoothing:antialiased;
+    padding:clamp(20px,5vw,64px) 20px; min-height:100%;
+  }
+  .wrap{max-width:820px;margin:0 auto}
+  .rb :where(h1,h2,h3,p,ul,ol){margin:0}
+
+  /* ---- header ---- */
+  .eyebrow{
+    font-size:.72rem;font-weight:700;letter-spacing:.16em;text-transform:uppercase;
+    color:var(--dawn);display:flex;align-items:center;gap:.6em;
+  }
+  .eyebrow::before{content:"";width:26px;height:2px;border-radius:2px;background:var(--grad)}
+  h1{
+    font-size:clamp(1.9rem,5vw,2.9rem);line-height:1.04;font-weight:800;
+    letter-spacing:-.02em;text-wrap:balance;margin:.5rem 0 .55rem;
+  }
+  h1 .arw{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent;font-weight:700}
+  .lede{font-size:1.06rem;color:var(--ink-soft);max-width:60ch;text-wrap:pretty}
+
+  header.head{
+    border-bottom:1px solid var(--line);padding-bottom:28px;margin-bottom:30px;
+    animation:rise .5s ease both;
+  }
+
+  /* ---- reference cards ---- */
+  .grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;margin-top:24px}
+  .card{
+    background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
+    padding:16px 18px;box-shadow:var(--shadow);
+  }
+  .card .k{font-size:.7rem;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-faint)}
+  .card .app{font-weight:700;font-size:1.02rem;margin:.35rem 0 .5rem;display:flex;align-items:center;gap:.5em}
+  .dot{width:9px;height:9px;border-radius:50%;flex:none}
+  .dot.o{background:var(--grad)} .dot.n{background:var(--navy)}
+  .kv{display:flex;gap:.6em;font-size:.9rem;padding:2px 0;color:var(--ink-soft)}
+  .kv b{color:var(--ink);font-weight:600;min-width:64px}
+  code,.mono{font-family:var(--mono);font-size:.86em}
+  .card a{color:var(--dawn);text-decoration:none;border-bottom:1px solid transparent}
+  .card a:hover{border-bottom-color:var(--dawn)}
+
+  /* ---- prereqs ---- */
+  section.block{margin-top:40px;animation:rise .5s ease both}
+  .h2row{display:flex;align-items:baseline;gap:.6em;margin-bottom:16px}
+  h2{font-size:1.3rem;font-weight:750;letter-spacing:-.01em}
+  .h2note{font-size:.85rem;color:var(--ink-faint)}
+  .prereq{display:flex;flex-direction:column;gap:8px}
+  .pr{
+    display:flex;align-items:center;gap:12px;background:var(--surface);
+    border:1px solid var(--line);border-radius:11px;padding:11px 14px;font-size:.94rem;
+  }
+  .pr .txt{flex:1;color:var(--ink)}
+  .pr.warn{border-color:color-mix(in srgb,var(--warn) 40%,var(--line));background:var(--warn-bg)}
+  .tag{font-size:.72rem;font-weight:700;letter-spacing:.03em;padding:3px 9px;border-radius:999px;white-space:nowrap}
+  .tag.ok{color:var(--good);background:var(--good-bg)}
+  .tag.todo{color:var(--warn);background:var(--warn-bg)}
+
+  /* ---- phases ---- */
+  .phase{display:grid;grid-template-columns:auto 1fr;gap:18px;padding:22px 0;border-top:1px solid var(--line)}
+  .phase:first-of-type{border-top:none;padding-top:6px}
+  .num{
+    width:40px;height:40px;border-radius:12px;background:var(--grad);color:#1C1917;
+    font-weight:800;font-size:1.1rem;display:flex;align-items:center;justify-content:center;
+    box-shadow:0 6px 16px -8px rgba(255,122,69,.6);font-variant-numeric:tabular-nums;
+  }
+  .phase h3{font-size:1.12rem;font-weight:750;letter-spacing:-.01em;margin-bottom:2px}
+  .phase .sub{font-size:.86rem;color:var(--ink-faint);margin-bottom:12px}
+  ol.steps{margin:0;padding:0;list-style:none;counter-reset:s;display:flex;flex-direction:column;gap:9px}
+  ol.steps li{position:relative;padding-left:30px;font-size:.95rem;color:var(--ink)}
+  ol.steps li::before{
+    counter-increment:s;content:counter(s);position:absolute;left:0;top:.05em;
+    width:20px;height:20px;border-radius:6px;background:var(--surface-2);border:1px solid var(--line-strong);
+    color:var(--ink-soft);font-size:.72rem;font-weight:700;display:flex;align-items:center;justify-content:center;
+    font-variant-numeric:tabular-nums;
+  }
+  .say{
+    margin-top:12px;border-left:3px solid var(--dawn);background:var(--surface-2);
+    border-radius:0 10px 10px 0;padding:9px 14px;font-size:.9rem;color:var(--ink-soft);
+  }
+  .say b{display:block;font-size:.66rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--dawn);margin-bottom:2px}
+  .say i{color:var(--ink);font-style:italic}
+  kbd{font-family:var(--sans);font-weight:600;color:var(--ink);background:var(--surface-2);border:1px solid var(--line-strong);border-radius:6px;padding:.5px 6px;font-size:.85em}
+
+  /* ---- table ---- */
+  .twrap{overflow-x:auto;border:1px solid var(--line);border-radius:var(--radius);background:var(--surface);box-shadow:var(--shadow);margin-top:6px}
+  table{border-collapse:collapse;width:100%;font-size:.9rem;min-width:540px}
+  th{text-align:left;font-size:.68rem;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-faint);font-weight:700;padding:12px 14px;border-bottom:1px solid var(--line)}
+  td{padding:12px 14px;border-bottom:1px solid var(--line);vertical-align:top;color:var(--ink-soft)}
+  tr:last-child td{border-bottom:none}
+  td .file{font-family:var(--mono);font-size:.82em;color:var(--ink)}
+  .chip{display:inline-flex;align-items:center;gap:.4em;font-size:.74rem;font-weight:700;padding:3px 10px;border-radius:999px;white-space:nowrap}
+  .chip::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
+  .chip.g{color:var(--good);background:var(--good-bg)}
+  .chip.a{color:var(--warn);background:var(--warn-bg)}
+  .chip.r{color:var(--bad);background:var(--bad-bg)}
+  .chip.b{color:var(--info);background:var(--info-bg)}
+
+  /* ---- thesis ---- */
+  .thesis{
+    margin-top:44px;background:var(--navy);border-radius:18px;padding:clamp(24px,4vw,38px);
+    color:#F4EFE6;position:relative;overflow:hidden;
+  }
+  :root[data-theme="dark"] .thesis,
+  @media (prefers-color-scheme:dark){}
+  .thesis::after{content:"";position:absolute;inset:0;background:radial-gradient(120% 100% at 100% 0,rgba(255,122,69,.28),transparent 55%);pointer-events:none}
+  .thesis .k{font-size:.72rem;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--amber);margin-bottom:12px;position:relative}
+  .thesis q{font-family:var(--serif);font-size:clamp(1.15rem,2.6vw,1.5rem);line-height:1.5;quotes:none;display:block;text-wrap:pretty;position:relative}
+  .thesis .foot{margin-top:16px;font-size:.85rem;color:#C6CFDD;position:relative}
+
+  .fin{margin-top:34px;padding-top:20px;border-top:1px solid var(--line);font-size:.86rem;color:var(--ink-faint)}
+  .fin b{color:var(--ink-soft)}
+  .fin code{color:var(--ink-soft)}
+
+  @keyframes rise{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+  @media (prefers-reduced-motion:reduce){*{animation:none!important}}
+  @media print{.rb{background:#fff;padding:0}.card,.twrap,.pr,.thesis{box-shadow:none}.phase{break-inside:avoid}}
+</style>
+
+<div class="rb">
+<div class="wrap">
+
+  <header class="head">
+    <div class="eyebrow">Sol-IQ Suite · Demo Runbook</div>
+    <h1>Invoice-IQ <span class="arw">&#8644;</span> Ledger-IQ</h1>
+    <p class="lede">A presenter's script for the full accounts-payable loop: a supplier PDF arrives, gets read and checked against Ledger-IQ, catches problems, routes for approval, and posts the bookkeeping back — all on live production.</p>
+
+    <div class="grid2">
+      <div class="card">
+        <div class="app"><span class="dot o"></span>Invoice-IQ</div>
+        <div class="kv"><b>URL</b><a href="https://invoice.sol-iq.co.uk">invoice.sol-iq.co.uk</a></div>
+        <div class="kv"><b>Login</b><span>your admin account</span></div>
+      </div>
+      <div class="card">
+        <div class="app"><span class="dot n"></span>Ledger-IQ · Demo Co</div>
+        <div class="kv"><b>URL</b><a href="https://ledger.sol-iq.co.uk">ledger.sol-iq.co.uk</a></div>
+        <div class="kv"><b>Login</b><span class="mono">demo@sol-iq.co.uk</span></div>
+        <div class="kv"><b>Pass</b><span class="mono">DemoLedger2026!</span></div>
+      </div>
+    </div>
+  </header>
+
+  <section class="block">
+    <div class="h2row"><h2>Before you start</h2><span class="h2note">check these once</span></div>
+    <div class="prereq">
+      <div class="pr"><span class="txt">Invoice-IQ connected to Ledger-IQ &amp; 5 POs synced</span><span class="tag ok">Ready</span></div>
+      <div class="pr"><span class="txt">Demo Co loaded — 7 suppliers, 5 POs, chart of accounts</span><span class="tag ok">Ready</span></div>
+      <div class="pr warn"><span class="txt"><b>Add a Claude API key</b> in Invoice-IQ → Settings → AI/Claude — needed to read dropped PDFs. Matching &amp; posting work without it.</span><span class="tag todo">Needed for extraction</span></div>
+      <div class="pr"><span class="txt">Demo files in <code>D:\Claude&nbsp;Projects\AP&nbsp;Automation\demo_invoices\</code> — 8 invoice PDFs + 3 import XMLs, plus the <b>remittance PDF</b> on your Desktop</span><span class="tag ok">Ready</span></div>
+    </div>
+    <p style="margin-top:12px;font-size:.88rem;color:var(--ink-faint)">Keep two browser tabs open — one per app — and flip between them as you narrate.</p>
+  </section>
+
+  <section class="block">
+    <div class="h2row"><h2>The walkthrough</h2><span class="h2note">seven phases, in order</span></div>
+
+    <div class="phase">
+      <div class="num">1</div>
+      <div>
+        <h3>Ledger-IQ — the accounting system</h3>
+        <div class="sub">Set the scene: the finance system that owns suppliers &amp; purchase orders.</div>
+        <ol class="steps">
+          <li>In the <b>Ledger-IQ</b> tab, sign in as the demo user.</li>
+          <li>Open <b>Suppliers</b> (7 Highlands &amp; Islands firms) and <b>Purchase Orders</b> (PO-10021&ndash;10025).</li>
+        </ol>
+        <div class="say"><b>Say</b><i>"This is the source of truth — who we buy from and what we've ordered."</i></div>
+      </div>
+    </div>
+
+    <div class="phase">
+      <div class="num">2</div>
+      <div>
+        <h3>Bulk onboarding by XML import</h3>
+        <div class="sub">The new feature — stand up a client's reference data in one click.</div>
+        <ol class="steps">
+          <li>Go to <b>Import</b> in the sidebar.</li>
+          <li><b>Customers:</b> choose <span class="file">ledgeriq_customers.xml</span> &rarr; <kbd>Import</kbd> &rarr; <i>"Customers: 4 created."</i> Show them on the Customers page.</li>
+          <li><b>Products:</b> choose <span class="file">ledgeriq_products.xml</span> &rarr; <kbd>Import</kbd> &rarr; <i>"Products: 5 created."</i></li>
+        </ol>
+        <div class="say"><b>Say</b><i>"Onboarding suppliers, customers and products is one XML import — and it's idempotent, so re-running just updates in place."</i></div>
+      </div>
+    </div>
+
+    <div class="phase">
+      <div class="num">3</div>
+      <div>
+        <h3>Invoice-IQ — connect &amp; pull the POs</h3>
+        <div class="sub">Prove the two apps are talking.</div>
+        <ol class="steps">
+          <li>Switch to the <b>Invoice-IQ</b> tab &rarr; <b>Settings &rarr; Finance System</b> (Ledger-IQ is selected).</li>
+          <li>Click <kbd>Test Connection</kbd> &rarr; <i>"Connected to Ledger-IQ successfully."</i></li>
+          <li>Click <kbd>Sync POs from Ledger-IQ</kbd> &rarr; <i>"Synced 5 POs."</i></li>
+        </ol>
+        <div class="say"><b>Say</b><i>"Invoice-IQ reads the open POs straight out of Ledger-IQ to match against."</i></div>
+      </div>
+    </div>
+
+    <div class="phase">
+      <div class="num">4</div>
+      <div>
+        <h3>Process the invoices</h3>
+        <div class="sub">The core. On the <b>Invoices</b> page, drop each PDF into the upload zone — one at a time. Each auto-extracts, resolves the supplier in Ledger-IQ, and matches its PO.</div>
+        <div class="twrap"><table>
+          <thead><tr><th>Drop this</th><th>What happens</th><th>Feature</th></tr></thead>
+          <tbody>
+            <tr><td><span class="file">INV-2043_Highland-Paper-Co.pdf</span></td><td>Matched to PO-10021, high confidence</td><td><span class="chip g">Clean match</span></td></tr>
+            <tr><td><span class="file">INV-9981_Islay-Logistics-Ltd.pdf</span></td><td>&ldquo;Total mismatch: Invoice &pound;583.80 vs PO &pound;528.00&rdquo; + qty differences</td><td><span class="chip a">Discrepancy</span></td></tr>
+            <tr><td><span class="file">INV-4410_Skye-Fresh-Produce.pdf</span></td><td>&ldquo;Supplier &lsquo;Skye Fresh Produce&rsquo; not found in Ledger-IQ&rdquo;</td><td><span class="chip r">Missing supplier</span></td></tr>
+            <tr><td><span class="file">INV-3390_Grampian-IT-Solutions.pdf</span></td><td>&pound;4,200 &gt; &pound;1,000 &rarr; routed to Awaiting Approval</td><td><span class="chip b">Approval</span></td></tr>
+          </tbody>
+        </table></div>
+        <div class="say"><b>Say at the mismatch</b><i>"It caught that the invoice doesn't agree with the PO — it won't silently overpay."</i></div>
+        <div class="say"><b>Say at the missing supplier</b><i>"That supplier isn't in the ledger yet, so it flags it instead of guessing — and you'd fix it live by importing Skye, re-syncing, and re-processing."</i></div>
+      </div>
+    </div>
+
+    <div class="phase">
+      <div class="num">5</div>
+      <div>
+        <h3>Approve &rarr; post back to Ledger-IQ</h3>
+        <div class="sub">The round trip that ties the two apps together.</div>
+        <ol class="steps">
+          <li>Open the <b>Highland</b> (or Grampian) invoice &rarr; <kbd>Approve</kbd>.</li>
+          <li>Flip to <b>Ledger-IQ &rarr; Purchases</b> — the bill is there, with its journal entry posted.</li>
+        </ol>
+        <div class="say"><b>Say</b><i>"Approve once in Invoice-IQ and it lands in the ledger as a purchase bill, bookkeeping done — no re-keying."</i></div>
+      </div>
+    </div>
+
+    <div class="phase">
+      <div class="num">6</div>
+      <div>
+        <h3>Remittances &mdash; the receivables side</h3>
+        <div class="sub">The mirror image: a customer tells you which of <em>your</em> sales invoices they've paid, and Invoice-IQ marks them off. Same engine, opposite direction.</div>
+        <ol class="steps">
+          <li>In Invoice-IQ, open <b>Remittances</b> (sidebar) and drop <span class="file">Harbour Healthcare (North) Ltd Remittance Advice.pdf</span>.</li>
+          <li>Watch it flow <b>Extracting &rarr; Posting &rarr; Posted</b> &mdash; customer <b>Harbour Healthcare</b>, <b>&pound;1,144.68</b>, 3 invoices matched (refs 1161 / 1162 / 1163).</li>
+          <li>Flip to <b>Ledger-IQ &rarr; Invoices</b>: 1161 / 1162 / 1163 now show <b>Paid</b>, each with a customer receipt and journal posted.</li>
+        </ol>
+        <div class="say"><b>Say</b><i>"A customer's remittance comes in as a PDF, and the matching sales invoices are marked paid — receipt and bookkeeping posted, no manual reconciliation."</i></div>
+      </div>
+    </div>
+
+    <div class="phase">
+      <div class="num">7</div>
+      <div>
+        <h3>Land the story</h3>
+        <div class="sub">Close on the whole loop in a sentence — then the punchline.</div>
+        <ol class="steps">
+          <li>Recap both directions: a supplier invoice paid, and a customer payment reconciled — all from PDFs.</li>
+          <li>Add: <i>"And this same flow works with QuickBooks, Sage or Xero — Ledger-IQ is just today's finance system."</i></li>
+        </ol>
+      </div>
+    </div>
+  </section>
+
+  <div class="thesis">
+    <div class="k">The one-liner</div>
+    <q>A supplier PDF arrives &mdash; Invoice-IQ reads it, checks it against the purchase order and supplier list in Ledger-IQ, catches mismatches and unknown suppliers, routes the big ones for approval, and posts the bookkeeping straight into Ledger-IQ. A customer remittance arrives &mdash; the same engine marks the paid sales invoices off. Payables and receivables, both from PDFs.</q>
+    <div class="foot">Everything above runs on live production &mdash; invoice.sol-iq.co.uk and ledger.sol-iq.co.uk.</div>
+  </div>
+
+  <p class="fin"><b>Reset between runs.</b> To wipe pushed bills and restore the demo org, the repo has <code>LedgerIQ/scripts/demo-clean-invoices.ts</code> (removes Invoice-IQ-pushed bills) and <code>demo-setup.ts</code> (re-creates suppliers/POs, prints the API key). Ask and I'll fold these into a single "reset demo" command.</p>
+
+</div>
+</div>

@@ -5,7 +5,7 @@
 {% block content %}
 <div class="row mb-3">
   <div class="col">
-    <p class="text-muted mb-0">Invoices assigned to you that require approval before posting to Sage 50.</p>
+    <p class="text-muted mb-0">Invoices assigned to you that require approval before posting to {{ finance_system_name }}.</p>
   </div>
 </div>
 
@@ -77,7 +77,7 @@ async function quickApprove(id, btn) {
     method: 'POST', headers: {'Content-Type':'application/json'},
     body: JSON.stringify({ notes: 'Approved via task list' })
   }).then(r => r.json());
-  if (r.success) { showToast('Invoice approved and posted to Sage', 'success'); loadTasks(); }
+  if (r.success) { showToast('Invoice approved and posted to {{ finance_system_name }}', 'success'); loadTasks(); }
   else showToast(r.error || 'Approval failed', 'danger');
 }
 

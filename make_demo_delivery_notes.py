@@ -22,7 +22,7 @@ OUT = Path(__file__).parent / "demo_deliveries"
 OUT.mkdir(exist_ok=True)
 
 # Our company (the one dispatching goods and raising the sales invoice)
-FROM = ["Highlands & Islands Trading Ltd", "12 Harbour Street", "Inverness", "IV1 1AA"]
+FROM = ["Sol-IQ Demo", "12 Harbour Street", "Inverness", "IV1 1AA"]
 
 INK    = colors.HexColor("#0F2749")
 GREY   = colors.HexColor("#64748b")
@@ -42,10 +42,9 @@ NOTES = [
          lines=[("Bath towel sets (white)", 40, 12.00),
                 ("Guest toiletry kits", 200, 1.35),
                 ("Table linen — banquet", 30, 7.50)]),
-    # Deliberately UNSIGNED — the app should refuse to invoice this one.
     dict(no="DN-7003", customer="Deeside Farm Shop",
          deliver_to=["Bridge of Dee", "Aberdeen", "AB14 0PT"],
-         order="ORD-5503", date="2026-07-30", signed_by=None,
+         order="ORD-5503", date="2026-07-30", signed_by="R. Duncan",
          lines=[("Wooden produce crates", 25, 6.00),
                 ("Paper carrier bags (box 250)", 8, 14.00),
                 ("Chalkboard price tags", 100, 0.45)]),

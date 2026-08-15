@@ -1,0 +1,36 @@
+{
+  "email": {
+    "tenant_id": "",
+    "client_id": "",
+    "client_secret": "",
+    "mailbox": "",
+    "polling_interval_minutes": 5,
+    "processed_folder": "AP Processed"
+  },
+  "sage": {
+    "enabled": true,
+    "data_path": "",
+    "username": "Manager",
+    "password": "",
+    "sdo_version": "300"
+  },
+  "po_source": {
+    "type": "sage",
+    "folder_path": ""
+  },
+  "approval": {
+    "enabled": true,
+    "threshold_amount": 1000.00,
+    "approvers": []
+  },
+  "claude": {
+    "api_key": "",
+    "model": "claude-opus-4-7"
+  },
+  "app": {
+    "company_name": "",
+    "currency": "GBP",
+    "port": 5000,
+    "attachment_storage_path": "invoices"
+  }
+}
