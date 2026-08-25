@@ -304,7 +304,24 @@ class XeroConnector(BaseConnector):
             json={'Invoices': [xero_inv]}
         )
         if resp.status_code >= 400:
-            self._raise_xero_error(resp, 'bill')
+            try:
+                self._raise_xero_error(resp, 'bill')
+            except ValueError as e:
+                msg = str(e).lower()
+                # Xero matches a POST to an existing bill by invoice number; if that
+                # bill is already AUTHORISED/PAID it rejects the change with a cryptic
+                # "not of valid status for modification". Make it actionable.
+                if ('not of valid status for modification' in msg
+                        or 'invoice number must be unique' in msg
+                        or 'the document is already' in msg):
+                    org = self._load_tokens().get('tenant_name', 'the connected Xero organisation')
+                    num = invoice_data.get('invoice_number', '') or '(no invoice number)'
+                    raise ValueError(
+                        f"A bill numbered {num} already exists in {org} and can't be "
+                        f"modified. Void or delete that bill in Xero, or use a unique "
+                        f"invoice number, then post again."
+                    ) from e
+                raise
         invoices = resp.json().get('Invoices', [])
         return invoices[0].get('InvoiceID', '') if invoices else ''
 

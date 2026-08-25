@@ -191,6 +191,14 @@
               </button>
             </div>
           </div>
+          <div class="col-md-6">
+            <label class="form-label">Bill status when posting</label>
+            <select class="form-select" id="xero-post-status">
+              <option value="DRAFT">Draft — review in Xero first (recommended for demos)</option>
+              <option value="AUTHORISED">Authorised — straight to awaiting payment</option>
+            </select>
+            <div class="form-text">Draft posts bills to Xero's Draft tab so nothing hits the ledger until you approve them in Xero.</div>
+          </div>
         </div>
         <div class="mt-3 p-3 rounded border" id="xero-auth-status-box">
           <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
@@ -627,6 +635,7 @@ async function loadSettings() {
   document.getElementById('xero-client-id').value        = settings.xero?.client_id || '';
   document.getElementById('xero-client-secret').value    = settings.xero?.client_secret || '';
   document.getElementById('xero-expense-account').value  = settings.xero?.default_expense_account || '300';
+  document.getElementById('xero-post-status').value      = settings.xero?.post_status || 'AUTHORISED';
   const xeroSavedUri = settings.xero?.redirect_uri || '';
   document.getElementById('xero-redirect-uri').value     =
     xeroSavedUri.startsWith(window.location.origin) ? xeroSavedUri : (window.location.origin + '/auth/xero/callback');
@@ -961,6 +970,7 @@ async function saveSettings() {
       client_secret:           document.getElementById('xero-client-secret').value,
       redirect_uri:            document.getElementById('xero-redirect-uri').value,
       default_expense_account: document.getElementById('xero-expense-account').value,
+      post_status:             document.getElementById('xero-post-status').value,
     },
     ledgeriq: {
       api_base_url: document.getElementById('ledgeriq-fs-url').value,
