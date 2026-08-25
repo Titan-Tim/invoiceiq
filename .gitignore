@@ -39,3 +39,6 @@ Sales/
 
 # Scratch output
 scratch_*.err
+
+# Generated demo invoice PDFs (recreated each run by make_demo_invoices.py)
+demo_invoices/
