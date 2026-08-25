@@ -1543,6 +1543,9 @@ def create_app():
         inv.sage_transaction_ref = ref
         inv.posted_to_sage_at   = datetime.utcnow()
         inv.status = 'ready_to_pay'
+        # Clear any earlier "post failed" note so a now-successful post doesn't
+        # keep showing the warning banner / needs-attention triangle.
+        inv.status_message = None
         db.session.add(AuditLog(
             invoice_id=inv.id, action='posted_to_finance',
             user_name=session.get('user_name', 'system'),

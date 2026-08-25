@@ -1,6 +1,17 @@
-"""Generate realistic, text-based demo invoice PDFs for the Invoice-IQ demo.
+r"""Generate realistic, text-based demo invoice PDFs for the Invoice-IQ demo.
 Drop the output into the invoice hot folder / mailbox to show ingestion,
-extraction, PO matching, approval and push-to-Ledger-IQ end to end.
+extraction, PO matching, approval and push-to-Xero/Ledger-IQ end to end.
+
+Run this ONCE before each demo. Every run produces a FRESH set:
+  * unique invoice numbers  — a per-run batch tag (mmddHHMM) is appended, so the
+    numbers have never been used in Xero before. (Xero reserves an invoice
+    number permanently once used — even after the bill is voided/deleted — so
+    reusing a number is rejected with "not of valid status for modification".)
+  * recent invoice dates    — dated a few days ago, so bills don't post already
+    overdue (Xero derives the due date from the invoice date + 30-day terms,
+    not from the upload time).
+The demo_invoices/ folder is cleared at the start of each run so you always
+drop a clean batch.
 
 Output: ./demo_invoices/*.pdf   Run: .\.venv-local\Scripts\python.exe make_demo_invoices.py
 """
@@ -18,6 +29,11 @@ from reportlab.platypus import (SimpleDocTemplate, Table, TableStyle,
 OUT = Path(__file__).parent / "demo_invoices"
 OUT.mkdir(exist_ok=True)
 
+# Per-run batch tag makes every generated invoice number unique. Minute
+# resolution is plenty — you run this once per demo.
+TODAY   = datetime.now()
+RUN_TAG = TODAY.strftime("%m%d%H%M")
+
 # Who the invoices are billed TO (the demo customer / Invoice-IQ account holder)
 BILL_TO = ["Sol-IQ Demo", "12 Harbour Street",
            "Inverness", "IV1 1AA"]
@@ -27,60 +43,65 @@ GREY = colors.HexColor("#64748b")
 LINE = colors.HexColor("#e2e8f0")
 HEADBG = colors.HexColor("#0F2749")
 
-# Each invoice: supplier, address, VAT reg, bank, invoice no, date, PO, lines.
+# Each invoice: supplier, address, VAT reg, bank, base invoice no, days_ago
+# (invoice dated this many days before today), PO, lines.
+# The final invoice number is  "<no>-<RUN_TAG>"  so it is unique every run.
 # line = (description, qty, unit_price).  subtotal = sum(qty*unit); VAT = 20%.
+# NOTE: suppliers / POs / amounts are deliberately unchanged — they preserve the
+# demo's built-in talking points (Skye Fresh Produce has no PO -> missing-match
+# prompt; Islay INV net 486.50 vs PO-10022 -> a price mismatch to discuss).
 INVOICES = [
     dict(supplier="Highland Paper Co",
          addr=["Unit 4, Nairn Industrial Estate", "Nairn", "IV12 5QR"],
          vat="GB 214 5567 89", bank="Sort 80-22-60  Acc 10045567",
-         no="INV-2043", date="2026-07-06", po="PO-10021",
+         no="INV-2043", days_ago=8, po="PO-10021",
          lines=[("A4 white copier paper (box of 5 reams)", 40, 22.00),
                 ("C4 manila envelopes (box of 250)", 20, 14.00),
                 ("Lever-arch files, assorted colours", 40, 2.00)]),
     dict(supplier="Caledonian Print Services",
          addr=["17 Longman Road", "Inverness", "IV1 1RY"],
          vat="GB 331 8890 12", bank="Sort 82-11-09  Acc 20337781",
-         no="INV-8830", date="2026-07-06", po="PO-10023",
+         no="INV-8830", days_ago=8, po="PO-10023",
          lines=[("Tri-fold brochures, full colour (per unit)", 5000, 0.36),
                 ("Business cards, 350gsm (pack of 250)", 10, 25.00),
                 ("A2 posters, full colour", 25, 10.00)]),
     dict(supplier="Ben Nevis Hardware",
          addr=["3 High Street", "Fort William", "PH33 6DH"],
          vat="GB 442 0091 34", bank="Sort 83-40-12  Acc 30559120",
-         no="INV-5521", date="2026-07-05", po="PO-10024",
+         no="INV-5521", days_ago=9, po="PO-10024",
          lines=[("Cordless drill driver 18V", 6, 95.00),
                 ("Mixed screws & fixings (tub)", 20, 12.00),
                 ("Heavy-duty cloth tape 50m", 20, 3.00)]),
     dict(supplier="Orkney Office Supplies",
          addr=["9 Albert Street", "Kirkwall, Orkney", "KW15 1HP"],
          vat="GB 556 7712 08", bank="Sort 80-05-33  Acc 40771208",
-         no="INV-3320", date="2026-07-04", po="PO-10025",
+         no="INV-3320", days_ago=10, po="PO-10025",
          lines=[("Ballpoint pens (box of 50)", 10, 6.50),
                 ("Compatible printer toner cartridge", 4, 45.00),
                 ("Sticky notes, multipack", 10, 3.00)]),
     dict(supplier="Islay Logistics Ltd",
          addr=["Distillery Road", "Port Ellen, Islay", "PA42 7DU"],
          vat="GB 667 4432 55", bank="Sort 82-63-14  Acc 50664432",
-         no="INV-9981", date="2026-07-06", po="PO-10022",
+         no="INV-9981", days_ago=8, po="PO-10022",
          lines=[("Pallet delivery — Highlands & Islands", 7, 58.00),
                 ("Next-day courier surcharge", 5, 16.10)]),
     dict(supplier="Skye Fresh Produce",
          addr=["Bridge Road", "Portree, Isle of Skye", "IV51 9ER"],
          vat="GB 778 1123 77", bank="Sort 83-27-01  Acc 60778112",
-         no="INV-4410", date="2026-07-05", po="",
+         no="INV-4410", days_ago=9, po="",
          lines=[("Seasonal vegetable box", 15, 8.25),
                 ("Fresh fruit platter", 5, 11.00)]),
     dict(supplier="Grampian IT Solutions",
          addr=["44 Union Street", "Aberdeen", "AB10 1BB"],
          vat="GB 889 5567 21", bank="Sort 80-91-22  Acc 70889556",
-         no="INV-3390", date="2026-07-05", po="",
+         no="INV-3390", days_ago=9, po="",
          lines=[("Business laptop — Core i5, 16GB RAM", 3, 850.00),
                 ("Annual IT support contract", 1, 950.00)]),
     dict(supplier="Loch Ness Cleaning",
          addr=["Balmacaan Road", "Drumnadrochit", "IV63 6WJ"],
          vat="GB 990 2278 43", bank="Sort 82-40-77  Acc 80990227",
-         no="INV-1120", date="2026-07-04", po="PO-10026",
-         lines=[("Monthly office cleaning — July 2026", 1, 560.00),
+         no="INV-1120", days_ago=10, po="PO-10026",
+         lines=[("Monthly office cleaning", 1, 560.00),
                 ("Washroom consumables", 1, 90.00)]),
 ]
 
@@ -100,7 +121,8 @@ def build(inv):
     subtotal = sum(q * u for _, q, u in inv["lines"])
     vat = round(subtotal * 0.20, 2)
     total = subtotal + vat
-    d = datetime.strptime(inv["date"], "%Y-%m-%d")
+    inv_no = f"{inv['no']}-{RUN_TAG}"              # unique per run
+    d = TODAY - timedelta(days=inv["days_ago"])    # recent -> not born overdue
     due = d + timedelta(days=30)
 
     story = []
@@ -108,7 +130,7 @@ def build(inv):
     left = [Paragraph(inv["supplier"], sup_name)] + \
            [Paragraph(l, small) for l in inv["addr"]] + \
            [Paragraph(f"VAT Reg: {inv['vat']}", small)]
-    meta = [[Paragraph("Invoice No", label_r), Paragraph(inv["no"], val_r)],
+    meta = [[Paragraph("Invoice No", label_r), Paragraph(inv_no, val_r)],
             [Paragraph("Date", label_r), Paragraph(d.strftime("%d %b %Y"), val_r)],
             [Paragraph("Due", label_r), Paragraph(due.strftime("%d %b %Y"), val_r)]]
     if inv["po"]:
@@ -153,25 +175,36 @@ def build(inv):
     # Footer
     story.append(Paragraph(
         f"Payment terms: 30 days from invoice date. Please quote invoice "
-        f"number {inv['no']} with payment.", small))
+        f"number {inv_no} with payment.", small))
     story.append(Paragraph(f"Bank: {inv['bank']}", small))
     story.append(Spacer(1, 6))
     story.append(Paragraph("Thank you for your business.", small))
 
     slug = inv["supplier"].replace(" ", "-").replace("&", "and")
-    path = OUT / f"{inv['no']}_{slug}.pdf"
+    path = OUT / f"{inv_no}_{slug}.pdf"
     doc = SimpleDocTemplate(str(path), pagesize=A4,
                             leftMargin=20 * mm, rightMargin=20 * mm,
                             topMargin=18 * mm, bottomMargin=18 * mm,
-                            title=f"{inv['supplier']} {inv['no']}")
+                            title=f"{inv['supplier']} {inv_no}")
     doc.build(story)
     return path.name, subtotal, vat, total, inv["po"]
 
 
-print(f"Writing to {OUT}\n")
-print(f"{'File':44} {'PO':10} {'Subtotal':>10} {'VAT':>9} {'Total':>10}")
-print("-" * 86)
+# Clear the previous batch so you always drop a clean set into the hot folder.
+removed = 0
+for old in OUT.glob("*.pdf"):
+    old.unlink()
+    removed += 1
+
+print(f"Writing to {OUT}")
+print(f"Batch tag: {RUN_TAG}   (invoice numbers end -{RUN_TAG})")
+if removed:
+    print(f"Cleared {removed} PDF(s) from the previous batch.")
+print()
+print(f"{'File':52} {'PO':10} {'Subtotal':>10} {'VAT':>9} {'Total':>10}")
+print("-" * 94)
 for inv in INVOICES:
     name, sub, vat, total, po = build(inv)
-    print(f"{name:44} {po or '-':10} {sub:>10,.2f} {vat:>9,.2f} {total:>10,.2f}")
-print(f"\n{len(INVOICES)} invoices written.")
+    print(f"{name:52} {po or '-':10} {sub:>10,.2f} {vat:>9,.2f} {total:>10,.2f}")
+print(f"\n{len(INVOICES)} invoices written — all dated within the last ~2 weeks, "
+      f"numbers suffixed -{RUN_TAG}.")
