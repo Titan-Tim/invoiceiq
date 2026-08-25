@@ -47,9 +47,11 @@ HEADBG = colors.HexColor("#0F2749")
 # (invoice dated this many days before today), PO, lines.
 # The final invoice number is  "<no>-<RUN_TAG>"  so it is unique every run.
 # line = (description, qty, unit_price).  subtotal = sum(qty*unit); VAT = 20%.
-# NOTE: suppliers / POs / amounts are deliberately unchanged — they preserve the
-# demo's built-in talking points (Skye Fresh Produce has no PO -> missing-match
-# prompt; Islay INV net 486.50 vs PO-10022 -> a price mismatch to discuss).
+# Two deliberate demo talking points are built in:
+#   * Skye Fresh Produce has no PO           -> "no match / missing PO" prompt.
+#   * Orkney invoices 6 toner cartridges vs   -> total + line-qty mismatch, held
+#     4 on PO-10025 (£438 vs £330)               for review (not auto-matched).
+# Every other pair matches cleanly (header + total + line items).
 INVOICES = [
     dict(supplier="Highland Paper Co",
          addr=["Unit 4, Nairn Industrial Estate", "Nairn", "IV12 5QR"],
@@ -76,8 +78,12 @@ INVOICES = [
          addr=["9 Albert Street", "Kirkwall, Orkney", "KW15 1HP"],
          vat="GB 556 7712 08", bank="Sort 80-05-33  Acc 40771208",
          no="INV-3320", days_ago=10, po="PO-10025",
+         # DELIBERATE DEMO MISMATCH: PO-10025 ordered 4 toner cartridges but the
+         # supplier has invoiced 6. Invoice total £438 vs PO £330 (>2% tolerance)
+         # -> Invoice-IQ flags a "Total mismatch" + line qty discrepancy and holds
+         # it for review instead of auto-matching. Great AP-controls talking point.
          lines=[("Ballpoint pens (box of 50)", 10, 6.50),
-                ("Compatible printer toner cartridge", 4, 45.00),
+                ("Compatible printer toner cartridge", 6, 45.00),
                 ("Sticky notes, multipack", 10, 3.00)]),
     dict(supplier="Islay Logistics Ltd",
          addr=["Distillery Road", "Port Ellen, Islay", "PA42 7DU"],
