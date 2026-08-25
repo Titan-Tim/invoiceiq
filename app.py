@@ -1006,11 +1006,12 @@ def create_app():
         storage  = settings['app'].get('attachment_storage_path', 'invoices')
         Path(storage).mkdir(parents=True, exist_ok=True)
 
-        from src.invoice_extractor import InvoiceExtractor
-        from src.invoice_processor import _upsert_pos
-        extractor = InvoiceExtractor()
-        imported, errors = 0, []
-
+        # Save the PDFs synchronously (fast), then AI-extract each in a background
+        # thread and return immediately. Extraction is a per-file Claude call —
+        # doing several inline would exceed the hosting/proxy request timeout
+        # (~100s behind Cloudflare) and surface to the browser as a "network
+        # error", even though the upload itself was fine.
+        accepted, errors = [], []
         for f in files:
             if not f.filename:
                 continue
@@ -1019,35 +1020,52 @@ def create_app():
                 continue
             save_path = str(Path(storage) / f'po_{uuid.uuid4().hex}_{secure_filename(f.filename)}')
             f.save(save_path)
-            try:
-                data = extractor.extract(save_path)
-                imported += _upsert_pos([{
-                    'po_number':     data.get('invoice_number') or Path(f.filename).stem,
-                    'supplier_name': data.get('supplier_name'),
-                    'supplier_ref':  '',
-                    'po_date':       data.get('invoice_date'),
-                    'expected_delivery': None,
-                    'subtotal':      data.get('subtotal', 0),
-                    'vat_amount':    data.get('vat_amount', 0),
-                    'total_amount':  data.get('total_amount', 0),
-                    'currency':      data.get('currency', 'GBP'),
-                    'status':        'open',
-                    'source':        'upload',
-                    'file_path':     save_path,
-                    'lines': [{
-                        'line_number':       n,
-                        'description':       l.get('description', ''),
-                        'product_code':      l.get('product_code', ''),
-                        'quantity':          l.get('quantity', 0),
-                        'unit_price':        l.get('unit_price', 0),
-                        'line_total':        l.get('line_total', 0),
-                        'quantity_invoiced': 0,
-                    } for n, l in enumerate(data.get('lines', []), 1)],
-                }])
-            except Exception as e:
-                errors.append(f'{f.filename}: {e}')
+            accepted.append((save_path, f.filename))
 
-        return jsonify({'success': True, 'imported': imported, 'errors': errors})
+        if not accepted:
+            return jsonify({'error': 'No valid PDF files provided',
+                            'errors': errors}), 400
+
+        def _extract_po(app_ctx, path, original_name):
+            with app_ctx:
+                try:
+                    from src.invoice_extractor import InvoiceExtractor
+                    from src.invoice_processor import _upsert_pos
+                    data = InvoiceExtractor().extract(path)
+                    _upsert_pos([{
+                        'po_number':     data.get('invoice_number') or Path(original_name).stem,
+                        'supplier_name': data.get('supplier_name'),
+                        'supplier_ref':  '',
+                        'po_date':       data.get('invoice_date'),
+                        'expected_delivery': None,
+                        'subtotal':      data.get('subtotal', 0),
+                        'vat_amount':    data.get('vat_amount', 0),
+                        'total_amount':  data.get('total_amount', 0),
+                        'currency':      data.get('currency', 'GBP'),
+                        'status':        'open',
+                        'source':        'upload',
+                        'file_path':     path,
+                        'lines': [{
+                            'line_number':       n,
+                            'description':       l.get('description', ''),
+                            'product_code':      l.get('product_code', ''),
+                            'quantity':          l.get('quantity', 0),
+                            'unit_price':        l.get('unit_price', 0),
+                            'line_total':        l.get('line_total', 0),
+                            'quantity_invoiced': 0,
+                        } for n, l in enumerate(data.get('lines', []), 1)],
+                    }])
+                except Exception as e:
+                    app.logger.error(f"PO extract failed for {original_name}: {e}")
+
+        for path, original_name in accepted:
+            threading.Thread(
+                target=_extract_po,
+                args=(app.app_context(), path, original_name),
+                daemon=True,
+            ).start()
+
+        return jsonify({'success': True, 'accepted': len(accepted), 'errors': errors})
 
     @app.route('/api/finance/expense-accounts')
     def api_expense_accounts():

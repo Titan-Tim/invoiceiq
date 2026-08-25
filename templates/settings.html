@@ -1163,8 +1163,8 @@ document.getElementById('po-upload-input')?.addEventListener('change', async (e)
     .then(x => x.json()).catch(() => ({ error: 'Network error' }));
   e.target.value = '';
   if (r.success) {
-    let msg = `Imported ${r.imported} purchase order(s).`;
-    if (r.errors && r.errors.length) msg += ` ${r.errors.length} could not be read.`;
+    let msg = `Uploaded ${r.accepted} PO(s) — reading them in the background; they'll appear shortly.`;
+    if (r.errors && r.errors.length) msg += ` ${r.errors.length} skipped (not a PDF).`;
     res.textContent = msg; res.className = 'small ms-2 text-success';
   } else {
     res.textContent = r.error || 'Upload failed.'; res.className = 'small ms-2 text-danger';
