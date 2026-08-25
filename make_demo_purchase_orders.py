@@ -63,7 +63,7 @@ POS = [
                 ("Sticky notes, multipack", 10, 3.00)]),
     dict(supplier="Loch Ness Cleaning", addr=["Balmacaan Road", "Drumnadrochit", "IV63 6WJ"],
          no="PO-10026", date="2026-06-20",
-         lines=[("Monthly office cleaning — July 2026", 1, 560.00),
+         lines=[("Monthly office cleaning", 1, 560.00),
                 ("Washroom consumables", 1, 90.00)]),
 ]
 
