@@ -4,7 +4,6 @@ Tokens are stored in config/tokens_xero.json and refreshed automatically.
 Access tokens expire after 30 minutes; refresh tokens last 60 days.
 """
 import base64
-import json
 import re
 import threading
 from datetime import datetime, date, timezone, timedelta
@@ -16,11 +15,11 @@ from urllib.parse import urlencode
 import requests
 
 from src.connectors.base import BaseConnector
-from src.config_manager import load_settings, CONFIG_DIR
+from src.config_manager import (load_settings,
+                                load_tokens, save_tokens, delete_tokens)
 
 # ---------- Constants ----------
 
-TOKEN_FILE    = CONFIG_DIR / 'tokens_xero.json'
 AUTH_URL      = 'https://login.xero.com/identity/connect/authorize'
 TOKEN_URL     = 'https://identity.xero.com/connect/token'
 CONNECTIONS   = 'https://api.xero.com/connections'
@@ -114,7 +113,7 @@ class XeroConnector(BaseConnector):
         return tokens
 
     def disconnect(self):
-        TOKEN_FILE.unlink(missing_ok=True)
+        delete_tokens('xero')
 
     # ------------------------------------------------------------------ #
     # Core operations
@@ -450,15 +449,10 @@ class XeroConnector(BaseConnector):
         return self.cfg.get('redirect_uri', 'http://localhost:5000/auth/xero/callback')
 
     def _load_tokens(self) -> dict:
-        if TOKEN_FILE.exists():
-            with open(TOKEN_FILE) as f:
-                return json.load(f)
-        return {}
+        return load_tokens('xero')
 
     def _save_tokens(self, tokens: dict):
-        TOKEN_FILE.parent.mkdir(parents=True, exist_ok=True)
-        with open(TOKEN_FILE, 'w') as f:
-            json.dump(tokens, f, indent=2)
+        save_tokens('xero', tokens)
 
     @staticmethod
     def _expiry(seconds: int) -> str:

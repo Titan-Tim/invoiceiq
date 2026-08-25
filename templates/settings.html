@@ -930,7 +930,7 @@ document.getElementById('btn-change-password').addEventListener('click', async (
 });
 
 // ---- Save ----
-document.getElementById('btn-save').addEventListener('click', async () => {
+async function saveSettings() {
   const sys    = document.querySelector('[name="finance-system"]:checked')?.value || 'sage';
   const poType = document.querySelector('[name="po-source"]:checked')?.value || 'connector';
   const payload = {
@@ -995,6 +995,11 @@ document.getElementById('btn-save').addEventListener('click', async () => {
     },
   };
   const r = await fetch('/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}).then(r=>r.json());
+  return r;
+}
+
+document.getElementById('btn-save').addEventListener('click', async () => {
+  const r = await saveSettings();
   if (r.success) showToast('Settings saved','success'); else showToast('Save failed','danger');
 });
 
@@ -1015,7 +1020,17 @@ document.getElementById('btn-sync-pos-sage').addEventListener('click', async () 
   if (r.success) showToast(`Synced ${r.synced} POs`,'success'); else showToast(r.error,'danger');
 });
 
-document.getElementById('btn-qbo-connect').addEventListener('click', () => {
+document.getElementById('btn-qbo-connect').addEventListener('click', async (e) => {
+  const btn = e.currentTarget;
+  btn.disabled = true;
+  btn.innerHTML = '<i class="bi bi-arrow-repeat spinning me-1"></i>Saving…';
+  const r = await saveSettings();
+  if (!r.success) {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="bi bi-box-arrow-up-right me-1"></i>Connect to QuickBooks';
+    showToast('Could not save settings before connecting','danger');
+    return;
+  }
   window.location.href = window.APP_PREFIX + '/auth/qbo/authorize';
 });
 document.getElementById('btn-qbo-disconnect').addEventListener('click', async () => {
@@ -1030,7 +1045,17 @@ document.getElementById('btn-sync-pos-qbo').addEventListener('click', async () =
                            : `<span class="text-danger">${r.error}</span>`;
 });
 
-document.getElementById('btn-xero-connect').addEventListener('click', () => {
+document.getElementById('btn-xero-connect').addEventListener('click', async (e) => {
+  const btn = e.currentTarget;
+  btn.disabled = true;
+  btn.innerHTML = '<i class="bi bi-arrow-repeat spinning me-1"></i>Saving…';
+  const r = await saveSettings();
+  if (!r.success) {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="bi bi-box-arrow-up-right me-1"></i>Connect to Xero';
+    showToast('Could not save settings before connecting','danger');
+    return;
+  }
   window.location.href = window.APP_PREFIX + '/auth/xero/authorize';
 });
 document.getElementById('btn-xero-disconnect').addEventListener('click', async () => {

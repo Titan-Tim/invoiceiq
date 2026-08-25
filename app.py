@@ -361,7 +361,14 @@ def create_app():
             session['oauth_return_to'] = 'wizard'
         state = secrets.token_urlsafe(24)
         session['oauth_state'] = state
-        connector = get_connector()
+        # Force the QuickBooks connector for this route regardless of which
+        # finance_system is currently saved — otherwise a demo still set to
+        # Xero would send the user to Xero's login when connecting QBO.
+        from src.connectors.qbo_connector import QBOConnector
+        connector = QBOConnector()
+        if not connector.cfg.get('client_id'):
+            dest = url_for('wizard') if session.get('oauth_return_to') == 'wizard' else url_for('settings_page')
+            return redirect(dest + '?auth_error=' + 'Enter and Save your QuickBooks client ID and secret before connecting.')
         return redirect(connector.get_auth_url(state))
 
     @app.route('/auth/qbo/callback')
@@ -375,7 +382,8 @@ def create_app():
 
         return_to = session.pop('oauth_return_to', 'settings')
         try:
-            connector = get_connector()
+            from src.connectors.qbo_connector import QBOConnector
+            connector = QBOConnector()
             connector.handle_callback(code, state, realmId=realm_id)
         except Exception as e:
             dest = url_for('wizard') if return_to == 'wizard' else url_for('settings_page')
@@ -395,7 +403,13 @@ def create_app():
             session['oauth_return_to'] = 'wizard'
         state = secrets.token_urlsafe(24)
         session['oauth_state'] = state
-        connector = get_connector()
+        # Force the Xero connector for this route regardless of the saved
+        # finance_system (mirrors qbo_authorize above).
+        from src.connectors.xero_connector import XeroConnector
+        connector = XeroConnector()
+        if not connector.cfg.get('client_id'):
+            dest = url_for('wizard') if session.get('oauth_return_to') == 'wizard' else url_for('settings_page')
+            return redirect(dest + '?auth_error=' + 'Enter and Save your Xero client ID and secret before connecting.')
         return redirect(connector.get_auth_url(state))
 
     @app.route('/auth/xero/callback')
@@ -408,7 +422,8 @@ def create_app():
 
         return_to = session.pop('oauth_return_to', 'settings')
         try:
-            connector = get_connector()
+            from src.connectors.xero_connector import XeroConnector
+            connector = XeroConnector()
             connector.handle_callback(code, state)
         except Exception as e:
             dest = url_for('wizard') if return_to == 'wizard' else url_for('settings_page')

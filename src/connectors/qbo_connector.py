@@ -15,11 +15,11 @@ from urllib.parse import urlencode
 import requests
 
 from src.connectors.base import BaseConnector
-from src.config_manager import load_settings, CONFIG_DIR
+from src.config_manager import (load_settings,
+                                load_tokens, save_tokens, delete_tokens)
 
 # ---------- Constants ----------
 
-TOKEN_FILE  = CONFIG_DIR / 'tokens_qbo.json'
 AUTH_URL    = 'https://appcenter.intuit.com/connect/oauth2'
 TOKEN_URL   = 'https://oauth.platform.intuit.com/oauth2/v1/tokens/bearer'
 REVOKE_URL  = 'https://developer.api.intuit.com/v2/oauth2/tokens/revoke'
@@ -110,7 +110,7 @@ class QBOConnector(BaseConnector):
                 )
             except Exception:
                 pass
-        TOKEN_FILE.unlink(missing_ok=True)
+        delete_tokens('qbo')
 
     # ------------------------------------------------------------------ #
     # Core operations
@@ -329,15 +329,10 @@ class QBOConnector(BaseConnector):
         return self.cfg.get('redirect_uri', 'http://localhost:5000/auth/qbo/callback')
 
     def _load_tokens(self) -> dict:
-        if TOKEN_FILE.exists():
-            with open(TOKEN_FILE) as f:
-                return json.load(f)
-        return {}
+        return load_tokens('qbo')
 
     def _save_tokens(self, tokens: dict):
-        TOKEN_FILE.parent.mkdir(parents=True, exist_ok=True)
-        with open(TOKEN_FILE, 'w') as f:
-            json.dump(tokens, f, indent=2)
+        save_tokens('qbo', tokens)
 
     @staticmethod
     def _expiry(seconds: int) -> str:
