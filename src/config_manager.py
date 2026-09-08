@@ -36,7 +36,12 @@ CONFIG_DIR  = Path(os.environ['CONFIG_DIR']) if os.environ.get('CONFIG_DIR') \
 CONFIG_PATH = CONFIG_DIR / 'settings.json'
 
 DEFAULT_SETTINGS = {
-    "finance_system": "sage",       # "sage" | "qbo" | "xero"
+    "finance_system": "sage",       # "sage" | "qbo" | "xero" | "ledgeriq" | "other"
+    # When True the accounting-system choice is locked: the picker is hidden
+    # from the client (they only ever see their own system) and cannot be
+    # changed until a super admin explicitly unlocks it. Set at provisioning
+    # so a client can never accidentally tick the wrong finance package.
+    "finance_locked": False,
     "email": {
         "tenant_id":                "",
         "client_id":                "",

@@ -11,6 +11,7 @@ SYSTEM_NAMES = {
     'qbo':      'QuickBooks Online',
     'xero':     'Xero',
     'ledgeriq': 'Ledger-IQ',
+    'other':    'Other (custom integration)',
 }
 
 
@@ -33,6 +34,9 @@ def get_connector(settings: dict = None) -> BaseConnector:
     elif system == 'ledgeriq':
         from src.connectors.ledgeriq_connector import LedgerIQConnector
         return LedgerIQConnector(settings)
+    elif system == 'other':
+        from src.connectors.null_connector import NullConnector
+        return NullConnector(settings)
     else:
         raise ValueError(
             f"Unknown finance system '{system}'. "

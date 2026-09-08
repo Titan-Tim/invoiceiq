@@ -48,15 +48,46 @@
       </div>
       {% endif %}
 
-      <!-- System selector -->
-      <div class="d-flex gap-3 mb-4 flex-wrap">
-        {% for key, label, icon in [('sage','Sage 50','bi-hdd'), ('qbo','QuickBooks Online','bi-cloud'), ('xero','Xero','bi-x-circle'), ('ledgeriq','Ledger-IQ','bi-journal-check')] %}
-        <label class="system-card" id="sys-card-{{ key }}">
-          <input type="radio" name="finance-system" value="{{ key }}" class="d-none">
-          <i class="bi {{ icon }} fs-2"></i>
-          <span class="fw-semibold">{{ label }}</span>
-        </label>
-        {% endfor %}
+      <!-- Locked view — the client only ever sees their own system, with
+           nothing to misclick. Shown when finance_locked is set. -->
+      <div id="finance-locked-banner" class="d-none align-items-center justify-content-between flex-wrap gap-2 p-3 mb-4"
+           style="background:#f0fdf4;border:1px solid #6ee7b7;border-radius:12px;">
+        <div>
+          <div class="fw-semibold" style="color:#0f172a;">
+            <i class="bi bi-lock-fill me-1" style="color:var(--accent);"></i>
+            Your accounting system: <span id="locked-system-name">—</span>
+          </div>
+          <div class="text-muted small">Locked so it can't be changed by accident. The settings below configure this system.</div>
+        </div>
+        {% if user_role == 'superadmin' %}
+        <button type="button" class="btn btn-outline-secondary btn-sm" id="btn-unlock-system">
+          <i class="bi bi-unlock me-1"></i>Unlock to change
+        </button>
+        {% endif %}
+      </div>
+
+      <!-- Editable view — dropdown + lock toggle. Hidden once locked. -->
+      <div id="finance-selector">
+        <div class="row g-3 align-items-start mb-4" style="max-width:660px;">
+          <div class="col-sm-7">
+            <label class="form-label fw-semibold">Accounting package</label>
+            <select class="form-select" id="finance-system-select">
+              <option value="sage">Sage 50</option>
+              <option value="qbo">QuickBooks Online</option>
+              <option value="ledgeriq">Ledger-IQ</option>
+              <option value="xero">Xero</option>
+              <option value="other">Other (requires special build)</option>
+            </select>
+          </div>
+          <div class="col-sm-5">
+            <label class="form-label fw-semibold">&nbsp;</label>
+            <div class="form-check form-switch">
+              <input class="form-check-input" type="checkbox" id="finance-lock">
+              <label class="form-check-label" for="finance-lock">Lock this choice</label>
+            </div>
+            <div class="text-muted" style="font-size:0.74rem; line-height:1.4;">Hides the picker from the client so they can't switch package by accident.</div>
+          </div>
+        </div>
       </div>
 
       <!-- Sage config -->
@@ -246,6 +277,21 @@
             <i class="bi bi-arrow-repeat me-1"></i>Sync POs from Ledger-IQ
           </button>
           <span id="ledgeriq-test-result" class="small align-self-center"></span>
+        </div>
+      </div>
+
+      <!-- Other / custom (bespoke integration) -->
+      <div id="config-other" class="system-config d-none">
+        <div class="alert alert-warning d-flex gap-2 small mb-0">
+          <i class="bi bi-tools flex-shrink-0 mt-1"></i>
+          <div>
+            <strong>Custom accounting package.</strong>
+            Invoice capture, extraction and approval all work straight away.
+            Posting invoices and syncing purchase orders need a bespoke connector
+            that Titan builds for this package before go-live — until then those
+            actions are safely disabled. If it's a common package, let us know and
+            we'll add it to the list for everyone.
+          </div>
         </div>
       </div>
     </div>
@@ -576,15 +622,43 @@ document.querySelectorAll('.settings-nav .nav-link').forEach(link => {
   });
 });
 
-// ---- System cards ----
-document.querySelectorAll('[name="finance-system"]').forEach(r => {
-  r.closest('.system-card').addEventListener('click', () => {
-    document.querySelectorAll('.system-card').forEach(c => c.classList.remove('selected'));
-    r.closest('.system-card').classList.add('selected');
-    r.checked = true;
-    document.querySelectorAll('.system-config').forEach(c => c.classList.add('d-none'));
-    document.getElementById(`config-${r.value}`).classList.remove('d-none');
-  });
+// ---- Finance system dropdown ----
+const SYSTEM_LABELS = {
+  sage: 'Sage 50', qbo: 'QuickBooks Online', xero: 'Xero',
+  ledgeriq: 'Ledger-IQ', other: 'Other (custom integration)',
+};
+
+function showSystemConfig(sys) {
+  document.querySelectorAll('.system-config').forEach(c => c.classList.add('d-none'));
+  document.getElementById(`config-${sys}`)?.classList.remove('d-none');
+}
+
+// Toggle between the locked (read-only) view and the editable dropdown.
+function applyLockUI(locked, sys) {
+  const banner   = document.getElementById('finance-locked-banner');
+  const selector = document.getElementById('finance-selector');
+  if (locked) {
+    document.getElementById('locked-system-name').textContent = SYSTEM_LABELS[sys] || sys;
+    banner.classList.remove('d-none');
+    banner.classList.add('d-flex');
+    selector.classList.add('d-none');
+  } else {
+    banner.classList.add('d-none');
+    banner.classList.remove('d-flex');
+    selector.classList.remove('d-none');
+  }
+}
+
+document.getElementById('finance-system-select').addEventListener('change', e => {
+  showSystemConfig(e.target.value);
+});
+
+// Superadmin can reveal the picker to change a locked system. This only shows
+// the dropdown; the change isn't saved (or truly unlocked) until Save is clicked.
+document.getElementById('btn-unlock-system')?.addEventListener('click', () => {
+  document.getElementById('finance-lock').checked = false;
+  applyLockUI(false, document.getElementById('finance-system-select').value);
+  showToast('Picker unlocked — choose a package and click Save to apply.', 'info');
 });
 
 // ---- PO source toggle ----
@@ -610,10 +684,10 @@ async function loadSettings() {
 
   // System
   const sys = settings.finance_system || 'sage';
-  const radio = document.querySelector(`[name="finance-system"][value="${sys}"]`);
-  if (radio) { radio.checked = true; radio.closest('.system-card').classList.add('selected'); }
-  document.querySelectorAll('.system-config').forEach(c => c.classList.add('d-none'));
-  document.getElementById(`config-${sys}`)?.classList.remove('d-none');
+  document.getElementById('finance-system-select').value = sys;
+  document.getElementById('finance-lock').checked = !!settings.finance_locked;
+  showSystemConfig(sys);
+  applyLockUI(!!settings.finance_locked, sys);
 
   // Sage
   document.getElementById('sage-data-path').value    = settings.sage?.data_path || '';
@@ -940,10 +1014,11 @@ document.getElementById('btn-change-password').addEventListener('click', async (
 
 // ---- Save ----
 async function saveSettings() {
-  const sys    = document.querySelector('[name="finance-system"]:checked')?.value || 'sage';
+  const sys    = document.getElementById('finance-system-select').value || 'sage';
   const poType = document.querySelector('[name="po-source"]:checked')?.value || 'connector';
   const payload = {
     finance_system: sys,
+    finance_locked: document.getElementById('finance-lock').checked,
     email: {
       tenant_id: document.getElementById('email-tenant-id').value,
       client_id: document.getElementById('email-client-id').value,
@@ -1010,7 +1085,14 @@ async function saveSettings() {
 
 document.getElementById('btn-save').addEventListener('click', async () => {
   const r = await saveSettings();
-  if (r.success) showToast('Settings saved','success'); else showToast('Save failed','danger');
+  if (r.success) {
+    showToast('Settings saved','success');
+    // Reflect the just-saved lock state (e.g. hide the picker once locked).
+    const sys = document.getElementById('finance-system-select').value;
+    applyLockUI(document.getElementById('finance-lock').checked, sys);
+  } else {
+    showToast(r.error || 'Save failed','danger');
+  }
 });
 
 // ---- Test / connect / disconnect buttons ----

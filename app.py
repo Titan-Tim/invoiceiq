@@ -124,6 +124,7 @@ def create_app():
         return {
             'finance_system_name': get_system_name(settings),
             'finance_system_key':  settings.get('finance_system', 'sage'),
+            'finance_locked':      bool(settings.get('finance_locked', False)),
             'currency_symbol':     currency_symbols.get(settings.get('app', {}).get('currency', 'GBP'), '£'),
             'current_user_name':   (cu.name if cu else session.get('user_name', '')),
             'current_user_email':  (cu.email if cu else ''),
@@ -1137,6 +1138,15 @@ def create_app():
         if guard: return guard
         new     = request.get_json()
         current = load_settings()
+        # Lock guard: a locked accounting system can only be changed if the same
+        # request also unlocks it (finance_locked explicitly False). This stops a
+        # stray or accidental save silently switching a client's finance package.
+        if (current.get('finance_locked')
+                and 'finance_system' in new
+                and new['finance_system'] != current.get('finance_system')
+                and new.get('finance_locked', True) is not False):
+            return jsonify({'error': 'The accounting system is locked. '
+                                     'Unlock it before changing.'}), 403
         # Preserve masked values
         for path in (('email', 'client_secret'), ('sage', 'password'),
                      ('qbo', 'client_secret'), ('xero', 'client_secret'),
@@ -1158,6 +1168,11 @@ def create_app():
         if guard: return guard
         patch   = request.get_json() or {}
         current = load_settings()
+        # Note: no lock guard here. This endpoint backs the superadmin-only setup
+        # wizard (first run + reconfigure), which is the deliberate tool for
+        # changing the finance system. The accidental-change guard lives on the
+        # full settings save (api_save_settings), which is the client-facing
+        # surface; the wizard UI defaults the lock back on.
         from src.config_manager import _deep_merge
         _deep_merge(current, patch)
         # Preserve masked secret placeholders

@@ -214,53 +214,36 @@
       <div class="step-title">Which accounting software do you use?</div>
       <p class="step-desc">Invoice-IQ will connect directly to your finance system to sync purchase orders and post approved invoices.</p>
 
-      <div id="sys-cards">
-        <label class="sys-card" id="sc-qbo">
-          <input type="radio" name="w-sys" value="qbo" class="d-none">
-          <i class="bi bi-cloud-check sys-icon"></i>
-          <div class="sys-info">
-            <div class="sys-name">QuickBooks Online</div>
-            <div class="sys-note">Cloud-based — connect via OAuth</div>
-          </div>
-          <div class="sys-check"><i class="bi bi-check"></i></div>
-        </label>
+      <div class="mb-2">
+        <label class="form-label fw-semibold">Accounting package</label>
+        <select class="form-select form-select-lg" id="w-sys-select">
+          <option value="" disabled selected>Choose the client's accounting package…</option>
+          <option value="sage">Sage 50</option>
+          <option value="qbo">QuickBooks Online</option>
+          <option value="ledgeriq">Ledger-IQ</option>
+          <option value="xero">Xero</option>
+          <option value="other">Other (requires special build)</option>
+        </select>
+        <div class="form-text" id="w-sys-note"></div>
+      </div>
 
-        <label class="sys-card" id="sc-xero">
-          <input type="radio" name="w-sys" value="xero" class="d-none">
-          <i class="bi bi-x-diamond sys-icon"></i>
-          <div class="sys-info">
-            <div class="sys-name">Xero</div>
-            <div class="sys-note">Cloud-based — connect via OAuth</div>
-          </div>
-          <div class="sys-check"><i class="bi bi-check"></i></div>
-        </label>
-
-        <label class="sys-card" id="sc-sage">
-          <input type="radio" name="w-sys" value="sage" class="d-none">
-          <i class="bi bi-hdd sys-icon"></i>
-          <div class="sys-info">
-            <div class="sys-name">Sage 50</div>
-            <div class="sys-note">On-premises — requires Sage installed on this PC</div>
-          </div>
-          <div class="sys-check"><i class="bi bi-check"></i></div>
-        </label>
-
-        <label class="sys-card" id="sc-ledgeriq">
-          <input type="radio" name="w-sys" value="ledgeriq" class="d-none">
-          <i class="bi bi-journal-check sys-icon"></i>
-          <div class="sys-info">
-            <div class="sys-name">Ledger-IQ</div>
-            <div class="sys-note">Sol-IQ bookkeeping — connect via API key</div>
-          </div>
-          <div class="sys-check"><i class="bi bi-check"></i></div>
-        </label>
+      <div class="auth-box mt-3">
+        <div class="form-check form-switch">
+          <input class="form-check-input" type="checkbox" id="w-finance-lock" checked>
+          <label class="form-check-label fw-semibold" for="w-finance-lock">Lock this choice for the client</label>
+        </div>
+        <div class="text-muted small mt-1">
+          Recommended. The client only ever sees their own accounting system —
+          the picker is hidden so they can't switch package by accident. You can
+          unlock it later in Settings if you need to change it.
+        </div>
       </div>
 
       <div class="wiz-nav">
         <button class="btn btn-outline-secondary" onclick="goStep(1)">
           <i class="bi bi-arrow-left me-1"></i> Back
         </button>
-        <button class="btn btn-primary px-4" id="btn-sys-continue" disabled onclick="goStep(3)">
+        <button class="btn btn-primary px-4" id="btn-sys-continue" disabled onclick="saveSystemAndNext()">
           Continue <i class="bi bi-arrow-right ms-1"></i>
         </button>
       </div>
@@ -403,6 +386,22 @@
             <i class="bi bi-plug me-1"></i>Test Connection
           </button>
           <span id="ledgeriq-test-wiz-result" class="small"></span>
+        </div>
+      </div>
+
+      <!-- Other / custom panel -->
+      <div id="cfg-other" class="sys-panel d-none">
+        <div class="step-title">Custom accounting package</div>
+        <p class="step-desc">
+          There's no built-in connector for this package yet. Invoice capture,
+          extraction and approval will work from day one. Posting invoices and
+          syncing purchase orders need a bespoke connector that Titan builds for
+          this package before go-live — until then those actions are safely
+          disabled. Continue through the rest of setup as normal.
+        </p>
+        <div class="alert alert-warning d-flex gap-2 small py-2">
+          <i class="bi bi-tools flex-shrink-0 mt-1"></i>
+          <div>If this is a common package with an API, tell Titan — we'll add it to the list for everyone.</div>
         </div>
       </div>
 
@@ -562,15 +561,18 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   showStep(currentStep);
 
-  // System card click
-  document.querySelectorAll('[name="w-sys"]').forEach(radio => {
-    radio.closest('.sys-card').addEventListener('click', () => {
-      document.querySelectorAll('.sys-card').forEach(c => c.classList.remove('selected'));
-      radio.closest('.sys-card').classList.add('selected');
-      radio.checked = true;
-      selectedSys = radio.value;
-      document.getElementById('btn-sys-continue').disabled = false;
-    });
+  // Finance system dropdown
+  const sysNotes = {
+    sage:     'On-premises — requires Sage 50 installed on this PC.',
+    qbo:      'Cloud-based — connect via OAuth.',
+    xero:     'Cloud-based — connect via OAuth.',
+    ledgeriq: 'Sol-IQ bookkeeping — connect via API key.',
+    other:    'Custom package — capture & approval work now; posting needs a bespoke Titan connector.',
+  };
+  document.getElementById('w-sys-select').addEventListener('change', (e) => {
+    selectedSys = e.target.value;
+    document.getElementById('w-sys-note').textContent = sysNotes[selectedSys] || '';
+    document.getElementById('btn-sys-continue').disabled = !selectedSys;
   });
 
   // QBO connect button
@@ -724,6 +726,18 @@ async function validateStep1AndContinue() {
   }
 }
 
+// Persist the chosen system + lock flag before moving to the connection step,
+// so the choice survives any OAuth round-trip and is applied even if setup is
+// finished from here.
+async function saveSystemAndNext() {
+  if (!selectedSys) { alert('Please choose an accounting package first.'); return; }
+  await partialSave({
+    finance_system: selectedSys,
+    finance_locked: document.getElementById('w-finance-lock').checked,
+  });
+  goStep(3);
+}
+
 function goStep(n) {
   if (n === 3 && !selectedSys) { alert('Please select a finance system first.'); return; }
   if (n === 3) {
@@ -808,6 +822,11 @@ async function finishSetup(skipAI = false) {
       currency:     document.getElementById('w-currency').value,
     },
   };
+  // Carry the finance system + lock through completion (authoritative final save).
+  if (selectedSys) {
+    payload.finance_system = selectedSys;
+    payload.finance_locked = document.getElementById('w-finance-lock').checked;
+  }
   if (!skipAI) {
     payload.claude = {
       api_key: document.getElementById('w-claude-key').value,
@@ -852,16 +871,19 @@ async function loadSavedSettings() {
     if (s.app?.currency)     document.getElementById('w-currency').value = s.app.currency;
     document.getElementById('w-po-enabled').checked = s.po_source?.enabled !== false;
 
-    // Pre-select saved system
+    // Pre-select saved system + lock flag
     const sys = s.finance_system || '';
-    if (sys && ['qbo','xero','sage','ledgeriq'].includes(sys)) {
-      const card = document.querySelector(`[name="w-sys"][value="${sys}"]`);
-      if (card) {
-        card.checked = true;
-        card.closest('.sys-card').classList.add('selected');
-        selectedSys = sys;
-        document.getElementById('btn-sys-continue').disabled = false;
+    if (sys && ['qbo','xero','sage','ledgeriq','other'].includes(sys)) {
+      const sel = document.getElementById('w-sys-select');
+      if (sel) {
+        sel.value = sys;
+        sel.dispatchEvent(new Event('change'));
       }
+    }
+    // First run: keep the recommended default (locked). Reconfigure: reflect
+    // whatever is actually saved so an admin sees the real current state.
+    if (reconfigure) {
+      document.getElementById('w-finance-lock').checked = !!s.finance_locked;
     }
 
     // QBO fields
