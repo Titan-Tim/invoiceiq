@@ -1,3 +1,4 @@
+import hmac
 import json
 import os
 import secrets
@@ -165,7 +166,9 @@ def create_app():
             return jsonify({'error': 'Only a super admin can change connection settings.'}), 403
         return None
 
-    PUBLIC_ENDPOINTS = {'login', 'forgot_password', 'healthz', 'static', 'favicon', 'privacy_policy', 'terms_of_use'}
+    # api_ingest_invoices skips the login session but checks its own X-Ingest-Key.
+    PUBLIC_ENDPOINTS = {'login', 'forgot_password', 'healthz', 'static', 'favicon', 'privacy_policy', 'terms_of_use',
+                        'api_ingest_invoices'}
     WIZARD_PATH_PREFIXES = ('/api/wizard', '/api/settings', '/auth/')
 
     @app.before_request
@@ -509,7 +512,22 @@ def create_app():
     @app.route('/api/invoices/upload', methods=['POST'])
     def api_upload_invoices():
         """Accept manually uploaded invoice files and run the full pipeline."""
-        files = request.files.getlist('files')
+        return _accept_invoice_files(request.files.getlist('files'), 'manual_upload', 'Manual upload',
+                                     session.get('user_name', 'system'))
+
+    @app.route('/api/invoices/ingest', methods=['POST'])
+    def api_ingest_invoices():
+        """Machine upload (e.g. a Capture-IQ box watching a SharePoint folder).
+        Authenticated by the X-Ingest-Key header instead of a login session;
+        disabled unless INVOICEIQ_INGEST_KEY is set."""
+        expected = os.environ.get('INVOICEIQ_INGEST_KEY', '')
+        given = request.headers.get('X-Ingest-Key', '')
+        if not expected or not hmac.compare_digest(given.encode(), expected.encode()):
+            return jsonify({'error': 'Invalid or missing ingest key'}), 401
+        source = (request.form.get('source') or 'capture_iq')[:60]
+        return _accept_invoice_files(request.files.getlist('files'), source, f'Ingested via {source}', source)
+
+    def _accept_invoice_files(files, email_from, label, audit_user):
         if not files or all(f.filename == '' for f in files):
             return jsonify({'error': 'No files provided'}), 400
 
@@ -531,8 +549,8 @@ def create_app():
             invoice = Invoice(
                 email_message_id = f'upload_{uuid.uuid4().hex}',
                 email_received_at = datetime.utcnow(),
-                email_from        = 'manual_upload',
-                email_subject     = f'Manual upload: {f.filename}',
+                email_from        = email_from,
+                email_subject     = f'{label}: {f.filename}',
                 attachment_filename = f.filename,
                 status            = 'received',
             )
@@ -547,8 +565,8 @@ def create_app():
             db.session.add(AuditLog(
                 invoice_id = invoice.id,
                 action     = 'received',
-                user_name  = session.get('user_name', 'system'),
-                notes      = f'Manually uploaded: {f.filename}',
+                user_name  = audit_user,
+                notes      = f'{label}: {f.filename}',
             ))
             db.session.commit()
 
@@ -1585,6 +1603,43 @@ def create_app():
             notes=f"Posted to {get_system_name()} — ref: {ref}"
         ))
         db.session.commit()
+        _archive_to_dociq(inv)
+
+    def _archive_to_dociq(inv: Invoice):
+        """Once an invoice is posted to finance, file a copy of its PDF in Doc-IQ
+        (POST /api/ingest/upload). Off unless DOCIQ_URL, DOCIQ_INGEST_KEY and
+        DOCIQ_SOURCE_ID are set. Runs in the background and never blocks posting."""
+        base, key, source_id = (os.environ.get('DOCIQ_URL', '').rstrip('/'),
+                                os.environ.get('DOCIQ_INGEST_KEY', ''), os.environ.get('DOCIQ_SOURCE_ID', ''))
+        if not (base and key and source_id) or not inv.attachment_path:
+            return
+        ext = Path(inv.attachment_filename or inv.attachment_path).suffix.lower() or '.pdf'
+        parts = [p for p in (inv.supplier_name, inv.invoice_number) if p]
+        name = (' - '.join(parts) if parts else Path(inv.attachment_filename or 'invoice').stem) + ext
+        name = ''.join(c for c in name if c not in '\\/:*?"<>|')
+        mime = {'.pdf': 'application/pdf', '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg',
+                '.tif': 'image/tiff', '.tiff': 'image/tiff', '.webp': 'image/webp'}.get(ext, 'application/octet-stream')
+        inv_id, path, user = inv.id, inv.attachment_path, session.get('user_name', 'system')
+
+        def _run(app_ctx):
+            with app_ctx:
+                try:
+                    with open(path, 'rb') as fh:
+                        r = requests.post(f'{base}/api/ingest/upload', data=fh.read(), timeout=60, headers={
+                            'x-api-key': key, 'x-source-id': source_id, 'Content-Type': mime,
+                            'x-filename': requests.utils.quote(name),
+                        })
+                    r.raise_for_status()
+                    doc_id = ((r.json() or {}).get('document') or {}).get('id', 'created')
+                    note = f'Filed in Doc-IQ as "{name}" (document {doc_id})'
+                    action = 'archived_to_dociq'
+                except Exception as e:
+                    note, action = f'Doc-IQ filing failed: {e}', 'dociq_archive_failed'
+                    app.logger.warning(f'Invoice {inv_id}: {note}')
+                db.session.add(AuditLog(invoice_id=inv_id, action=action, user_name=user, notes=note))
+                db.session.commit()
+
+        threading.Thread(target=_run, args=(app.app_context(),), daemon=True).start()
 
     def _post_to_ledgeriq(inv: Invoice, settings: dict):
         """Push an approved supplier invoice into LedgerIQ as a purchase bill.
